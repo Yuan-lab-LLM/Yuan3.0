@@ -94,9 +94,9 @@ Fig.1: Yuan 3.0 架构图
 
 **我们提供多种模型格式的下载链接：**
 
-|    模型     | 序列长度  |   模型格式   |         下载链接         |
-| :----------: | :------: | :-------: |:---------------------------: |
-| Yuan3.0 Flash |    128K    |    Megatron    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan3/) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan3) \|  [始智AI](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan3)
+|    模型     |   参数量  |  序列长度  |   模型格式   |         下载链接         |
+| :----------: | :------: | :------: | :-------: |:---------------------------: |
+| Yuan3.0 Flash |    400亿    |    128K    |    HuggingFace    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan3/) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan3) \|  [始智AI](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan3)
 
 
 
