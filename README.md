@@ -1,6 +1,6 @@
 <div align="center">
 <h1>
-  Yuan 3.0 Large Language Model
+  Yuan 3.0 Multimodal Large Model
 </h1>
 </div>
 
@@ -45,7 +45,7 @@
 
 ## 1. Introduction
 
-Inspur Information's **"Yuan 3.0" Large Language Model** is a new generation general-purpose large model designed for real-world application scenarios, focusing on **text retrieval, multimodal table analysis, complex table understanding and summary generation**, among other high-value tasks. It is suitable for knowledge-intensive and structured data-heavy application environments.
+Inspur Information's **"Yuan 3.0" Multimodal Large Model** is a new generation general-purpose large model designed for real-world application scenarios, focusing on **text retrieval, multimodal table analysis, complex table understanding and summary generation**, among other high-value tasks. It is suitable for knowledge-intensive and structured data-heavy application environments.
 
 🚀⚙️ In terms of model architecture, Yuan 3.0 adopts a new generation **Sparse Mixture of Experts (MoE) architecture**, designed holistically around large-scale parameters and efficient inference requirements. It introduces proprietary dynamic routing and expert pruning mechanisms to achieve adaptive collaboration among multiple experts. While ensuring model expressiveness and inference effectiveness, it effectively reduces the scale of actually activated parameters and computational overhead, achieving a balance between performance, cost, and scalability.
 
