@@ -1,0 +1,61 @@
+hydra:
+  searchpath:
+    - file://verl/trainer/config
+
+defaults:
+  - ppo_trainer_dapo_megatron
+  - _self_
+
+data:
+  gen_batch_size: ${data.train_batch_size}
+  clip_visual_size: 1024
+  downsample_ratio: 0.5
+  max_split_tile_num: 9
+  image_start_token: "<IMAGE>"
+  image_end_token: "</IMAGE>"
+  bos_token: "<BOS>"
+  pad_token: "<pad>"
+  train_16k_files: ""
+  train_4k_files: ""
+
+reward_model:
+  reward_manager: yuan_dapo_mp
+  reward_kwargs:
+    overlong_buffer:
+      enable: True
+      len: 4096
+      penalty_factor: 1.0
+      log: False
+    max_resp_len: ${data.max_response_length}
+    n_samples_per_prompt: ${actor_rollout_ref.rollout.n}
+    qwen72b_inst_host: []
+    qwen72b_vl_host: []
+    yuanm32_host: []
+    bert_host: []
+    process_reward_host: []
+    debug_reward_data_path: null
+    reward_vllm_args:
+      timeout: 3000
+      max_tokens: 2048
+
+
+custom_reward_function:
+  path: verl/utils/reward_score/reward_score_yuan.py
+  name: compute_reward_score
+
+algorithm:
+  filter_groups:
+    _target_: verl.trainer.config.FilterGroupsConfig
+    enable: False # We try to avoid forgetting to set enable
+    metric: null # acc / score / seq_reward / seq_final_reward / ...
+    max_num_gen_batches: 0 # Non-positive values mean no upper limit
+    hard_to_easy: False # use hard samples to fill up gbs
+    easy_to_hard: False # use easy samples to fill up gbs
+    center_to_sides: False # use medium samples to fill up gbs, all false means random
+    reorder_batch_enable: False # whether to reorder batch
+    reorder_batch_hard_to_easy: False # reorder batch samples according to pass_rates, from hard to easy
+    reorder_batch_easy_to_hard: False # reorder batch samples according to pass_rates, from easy to hard
+
+
+trainer:
+  project_name: verl-dapo

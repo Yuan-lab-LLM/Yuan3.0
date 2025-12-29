@@ -1,0 +1,3 @@
+##容器qwen25vl_vllm
+CUDA_VISIBLE_DEVICES=0,1,2,3 python -m vllm.entrypoints.openai.api_server --model=$CKPTPATH --limit-mm-per-prompt image=10,video=10 --tensor-parallel-size=4  --trust-remote-code --disable-custom-all-reduce --max-num-seqs=1024  --port 7220 --host 0.0.0.0 --gpu-memory-utilization 0.85 --dtype bfloat16 &
+CUDA_VISIBLE_DEVICES=4,5,6,7 python -m vllm.entrypoints.openai.api_server --model=$CKPTPATH --limit-mm-per-prompt image=10,video=10 --tensor-parallel-size=4  --trust-remote-code --disable-custom-all-reduce --max-num-seqs=1024  --port 7221 --host 0.0.0.0 --gpu-memory-utilization 0.85 --dtype bfloat16 
