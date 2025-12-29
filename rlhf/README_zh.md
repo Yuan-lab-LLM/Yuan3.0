@@ -1,12 +1,13 @@
 
-
 <div align="center">
-
-
 
 ![seed logo](https://avatars.githubusercontent.com/u/148021798?s=200&v=4)
 
-<h1 style="text-align: center;">Yuan3.0 Flash: XXXX</h1>
+
+<h1>Yuan3.0 Flash is a Multimodal Large Language Model</h1>
+
+</div>
+
 
 ## 目录
 
