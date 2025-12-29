@@ -52,7 +52,6 @@ In multiple mainstream evaluations, Yuan 3.0 demonstrates competitive performanc
 |--------|------|
 | Model Parameters | 40 Billion (40B) |
 | Activated Parameters | 3.7 Billion |
-| Training Data Volume | 2000B tokens |
 | Supported Sequence Length | 128K |
 | Release Date | December 30, 2025 |
 
