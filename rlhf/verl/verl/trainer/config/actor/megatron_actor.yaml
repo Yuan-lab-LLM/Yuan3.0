@@ -100,7 +100,6 @@ megatron:
     # 'full' will checkpoint the entire transformer layer and 'selective' only checkpoints memory intensive part of attention
     recompute_num_layers: null
 
-    # add by zhaoxd
     use_loss_chunk: False
 
     compute_probs_in_model: False

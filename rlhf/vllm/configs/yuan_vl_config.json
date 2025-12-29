@@ -6,7 +6,7 @@
     "AutoModel": "modeling_yuanvl_chat.YuanVLChatModel",
     "AutoModelForCausalLM": "modeling_yuanvl_chat.YuanVLChatModel"
   },
-  "clip_download_path": "/icfsikc/zhaoxudong/ckpt/models--InternViT-300M-448px",
+  "clip_download_path": "models--InternViT-300M-448px",
   "imagemlp_recompute": true,
   "downsample_ratio": 0.5,
   "dynamic_image_size": true,
