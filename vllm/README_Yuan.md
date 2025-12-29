@@ -1,7 +1,7 @@
 ##  1. Docker image
 
 
-We strongly recommend using the latest release of docker images of Yuan3.0-40B. You can launch an instance of the Yuan 3.0 container with the following Docker commands:
+We strongly recommend using the latest release of docker images of Yuan3.0 Flash.
 
 ```bash
 docker pull yuanmodel/vllm:v0.11.0
@@ -23,7 +23,7 @@ pip install -e .
 
 **3.1  Environment Config**
 
-You can launch an instance of the Yuan 2.0 container with the following Docker commands:
+You can launch an instance of the Yuan3.0 Flash container with the following Docker commands:
 
 ```bash
 docker run --gpus all --privileged --ulimit stack=68719476736 --shm-size=1000G -itd -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints --name your_name yuanmodel/vllm:v0.11.0
@@ -33,7 +33,7 @@ docker exec -it your_name bash
 **3.2 Deployment service **
 Yuan3.0 Model just support vLLm V1.
 ```bash
-vllm serve /path/yuanvl3.0-40B --port 8100 --gpu-memory-utilization 0.9 --tensor-parallel-size 2
+vllm serve /path/yuanvl3.0-Flash --port 8100 --gpu-memory-utilization 0.9 --tensor-parallel-size 2
 ```
 
 **3.3 Client request **
