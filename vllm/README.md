@@ -31,8 +31,8 @@ Join us at the [PyTorch Conference, October 22-23](https://events.linuxfoundatio
 
 ---
 
-## Use Yuan3.0 Model
-Yuan3.0 supports bfloat16 and int4 quantization models.  [Quickstart](./README_Yuan.md)
+## Use Yuan3.0 Flash Model
+Yuan3.0 Flash supports bfloat16 and int4 quantization models.  [Quickstart](./README_Yuan.md)
 
 
 ## About
