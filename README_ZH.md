@@ -1,4 +1,4 @@
-<img width="437" height="59" alt="image" src="https://github.com/user-attachments/assets/dc28b475-7d00-454e-8562-b85beaf2bd9e" /><img width="758" height="60" alt="image" src="https://github.com/user-attachments/assets/9850c2bc-c7b1-471f-80e7-69162ea845ce" /><img width="1188" height="35" alt="image" src="https://github.com/user-attachments/assets/c843fab4-6dfc-4a13-b248-3bc4b386da25" /><div align="center">
+<div align="center">
 <h1>
   源3.0多模态大模型
 </h1>
