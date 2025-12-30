@@ -1,13 +1,9 @@
 <div align="center">
 <h1>
-  源3.0多模态大模型
+  源3.0多模态基础大模型
 </h1>
 </div>
 
-
-<div align="center">
-  <img src="https://github.com/IEIT-Yuan/Yuan-2.0/blob/main/docs/Yuan3.0_logo.png?raw=true" width="60%" alt="Yuan-3.0" />
-</div>
 <hr>
 <div align="center" style="line-height: 1;">
   <a href="https://huggingface.co/YuanLabAI"><img alt="Hugging Face"
@@ -101,8 +97,9 @@ Fig.2: Yuan3.0 Flash评测结果
 
 |    模型     |   参数量  |  精度  |   序列长度  |   模型格式   |         下载链接         |
 | :----------: | :------: | :------: | :------: | :-------: |:---------------------------: |
-| Yuan3.0 Flash |    400亿    |  16bit    |    128K    |    HuggingFace    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan3/) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan3) \|  [始智AI](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan3)
-| Yuan3.0 Flash |    400亿   |  4bit     |    128K    |    HuggingFace    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan3/) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan3) \|  [始智AI](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan3)
+| Yuan3.0 Flash |    400亿    |  16bit    |    128K    |    HuggingFace    | [ModelScope]( https://modelscope.cn/models/Yuanlab/Yuan3.0-Flash) \| [HuggingFace]( https://huggingface.co/YuanLabAI/Yuan3.0-Flash) \|  [始智AI]( https://www.wisemodel.cn/models/YuanLabAI/Yuan3.0-Flash)
+| Yuan3.0 Flash 4bit |    400亿   |  4bit     |    128K    |    HuggingFace    | [ModelScope]( https://modelscope.cn/models/Yuanlab/Yuan3.0-Flash-int4) \| [HuggingFace]( https://huggingface.co/YuanLabAI/Yuan3.0-Flash-4bit) \|  [始智AI]( https://www.wisemodel.cn/models/YuanLab/Yuan3.0-Flash-4bit)
+
 
 
 
@@ -199,7 +196,7 @@ Yuan3.0 Flash 在多模态RAG评测Docmatix中领先Claude3.5、OpenAI GPT-4o �
 
 **6.1 Yuan3.0 Flash推理**
 
-Yuan3.0 Flash 支持 bfloat16 和 int4 量化模型，具体使用方法，详见[Quickstart](vllm/README_Yuan.md)
+Yuan3.0 Flash 支持 bfloat16 和 int4 量化模型，具体使用方法，详见[QuickStart](vllm/README_Yuan.md)
 
 
 **6.2 数据预处理**
@@ -213,7 +210,7 @@ Yuan3.0 Flash 支持 bfloat16 和 int4 量化模型，具体使用方法，详�
 
 
 ##  5. 协议声明
-使用源3.0代码及模型需遵循 Apache 2.0 开源协议和《源3.0模型许可协议》，源3.0模型支持商用，不需要申请授权，请您了解并遵循，勿将开源模型和代码及基于开源项目产生的衍生物用于任何可能给国家和社会带来危害的用途以及用于任何未经过安全评估和备案的服务。
+使用源3.0代码及模型需遵循[《源3.0模型许可协议》](https://github.com/Yuan-lab-LLM/Yuan3.0?tab=License-1-ov-file)，源3.0模型支持商用，不需要申请授权，请您了解并遵循，勿将开源模型和代码及基于开源项目产生的衍生物用于任何可能给国家和社会带来危害的用途以及用于任何未经过安全评估和备案的服务。
 
 尽管模型在训练时我们已采取措施尽力确保数据的合规性和准确性，但模型参数量巨大且受概率随机性因素影响，我们无法保证输出内容的准确性，且模型易被输入指令所误导，本项目不承担开源模型和代码导致的数据安全、舆情风险或发生任何模型被误导、滥用、传播、不当利用而产生的风险和责任。您将对通过使用、复制、分发和修改模型等方式利用该开源项目所产生的风险与后果，独自承担全部责任。
 
