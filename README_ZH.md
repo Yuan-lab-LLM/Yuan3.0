@@ -16,7 +16,7 @@
   <a href="https://arxiv.org/abs/2405.17976"><img alt="arXiv"
     src="https://img.shields.io/badge/arXiv-Yuan%203.0%20Paper-b31b1b?logo=arxiv&logoColor=white"/></a>
     <a href="model_license">
-    <img alt="Model License" src="https://img.shields.io/badge/Yuan3.0%20License-blue?style=flat&logoColor=blue&label=Model%20License&color=blue&link=https%3A%2F%2Fgithub.com%2FIEIT-Yuan%2FYuan-2.0%2Fblob%2Fmain%2FLICENSE-Yuan" />
+    <img alt="Model License" src="(https://github.com/Yuan-lab-LLM/Yuan3.0?tab=License-1-ov-file" />
   </a>
 </div>
 
