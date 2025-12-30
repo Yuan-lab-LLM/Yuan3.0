@@ -33,7 +33,7 @@ docker exec -it your_name bash
 
 Yuan3.0 Flash Model just support vLLm V1.
 ```bash
-vllm serve /path/yuanvl3.0-Flash --port 8100 --gpu-memory-utilization 0.9 --tensor-parallel-size 2
+python -m vllm.entrypoints.openai.api_server --model=/path/Yuan3__0-Flash --port 8100 --gpu-memory-utilization 0.9 --tensor-parallel-size 2 --trust-remote-code --allowed-local-media-path "/path/images"
 ```
 
 **3.3 Client request**
@@ -42,19 +42,24 @@ vllm serve /path/yuanvl3.0-Flash --port 8100 --gpu-memory-utilization 0.9 --tens
 from openai import OpenAI
 
 openai_api_key = "EMPTY"
-openai_api_base = "http://localhost:8010/v1"
+openai_api_base = "http://localhost:8100/v1"
 
 client = OpenAI(
     api_key=openai_api_key,
     base_url=openai_api_base,
 )
 
+prompt = '请描述这张图片的内容'
+image_path = 'Yuan3.0/vllm/docs/images/image.jpg'
+image_url = f"file:{image_path}"
+
 response = client.chat.completions.create(
-    model="/path/Yuanvl3.0-Flase",
+    model="/path/Yuan3__0-Flash",
     messages=[{
         "role": "user",
         "content": [
-            {"type": "text", "text": "Hello!"},
+            {"type": "text", "text": f"{prompt}"},
+            {"type": "image_url", "image_url": {"url": image_url}},
         ],
     }
     ],
