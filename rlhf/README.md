@@ -37,9 +37,9 @@ We recommend using the latest pre-built docker image provided by us.
 
 We can start the container with the following command:
 ```bash
-docker pull yuanlab/rlhf_yuan:v1.0
+docker pull yuanlabai/rlhf_yuan:v1.0
 
-docker run --gpus all -itd --network=host -v /path/to/yuan_3.0:/workspace/yuan_3.0 -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints --cap-add=IPC_LOCK --device=/dev/infiniband --privileged --name your_name --ulimit core=0 --ulimit memlock=-1 --ulimit stack=68719476736 --shm-size=1000G rlhf_yuan:v1.0
+docker run --gpus all -itd --network=host -v /path/to/yuan_3.0:/workspace/yuan_3.0 -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints --cap-add=IPC_LOCK --device=/dev/infiniband --privileged --name your_name --ulimit core=0 --ulimit memlock=-1 --ulimit stack=68719476736 --shm-size=1000G yuanlabai/rlhf_yuan:v1.0
 
 docker exec -it your_name bash
 ```

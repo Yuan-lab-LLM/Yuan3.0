@@ -41,9 +41,9 @@ Yuan3.0 Flash模型支持商用，不需要申请授权，请您了解并遵循[
 我们可以通过下面命令启动容器：
 
 ```bash
-docker pull yuanlab/rlhf_yuan:v1.0
+docker pull yuanlabai/rlhf_yuan:v1.0
 
-docker run --gpus all -itd --network=host -v /path/to/yuan_3.0:/workspace/yuan_3.0 -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints --cap-add=IPC_LOCK --device=/dev/infiniband --privileged --name your_name --ulimit core=0 --ulimit memlock=-1 --ulimit stack=68719476736 --shm-size=1000G yuanlab/rlhf_yuan:v1.0
+docker run --gpus all -itd --network=host -v /path/to/yuan_3.0:/workspace/yuan_3.0 -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints --cap-add=IPC_LOCK --device=/dev/infiniband --privileged --name your_name --ulimit core=0 --ulimit memlock=-1 --ulimit stack=68719476736 --shm-size=1000G yuanlabai/rlhf_yuan:v1.0
 
 docker exec -it your_name bash
 ```
