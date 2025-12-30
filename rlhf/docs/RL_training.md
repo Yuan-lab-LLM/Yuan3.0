@@ -14,7 +14,7 @@ The reinforcement learning training of Yuan3.0 Flash adopts the Decoupled Advant
 # start head node
 RAY_USE_IP_ADDRESS=True ray start --head --num-cpus=64 --num-gpus=8 --port=6400 --memory=873741824000 --dashboard-host 0.0.0.0  --node-ip-address=${your_head_node_ip}
 # start worker node
-RAY_USE_IP_ADDRESS=True ray start --num-cpus=64 --num-gpus=8 --memory=873741824000 --dashboard-host 0.0.0.0 --address $2:6400 --node-ip-address=${your_worker_node_ip}
+RAY_USE_IP_ADDRESS=True ray start --num-cpus=64 --num-gpus=8 --memory=873741824000 --dashboard-host 0.0.0.0 --address ${your_head_node_ip}:6400 --node-ip-address=${your_worker_node_ip}
 ```
 
 ### Step 2: Start DAPO Training

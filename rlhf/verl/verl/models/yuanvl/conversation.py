@@ -391,7 +391,7 @@ register_conv_template(
     Conversation(
         name='yuan-chat',
         system_template='<|im_start|>system\n{system_message}',
-        system_message='你是IEI-源多模态模型，英文名是YuanVL，是由浪潮信息开发的多模态大语言模型。',
+        system_message='你是Yuan3.0 Flash多模态大模型，由YuanLab.ai 团队开发的多模态大语言模型。',
         roles=('<|im_start|>user\n', '<|im_start|>assistant\n'),
         sep_style=SeparatorStyle.MPT,
         sep='<|im_end|>\n',

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2023 IEIT-Yuan and the HuggingFace Inc. team. All rights reserved.
+# Copyright 2023 YuanLab and the HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,9 +26,6 @@ class YuanConfig(PretrainedConfig):
     This is the configuration class to store the configuration of a [`YuanModel`]. It is used to instantiate an
     Yuan model according to the specified arguments, defining the model architecture. Instantiating a configuration
     with the defaults will yield a similar configuration to that of the Yuan--v0.1 or Yuan.
-
-    [IEIT-Yuan/Yuan-M32](https://huggingface.co/IEIT-Yuan/Yuan-M32)
-    [IEIT-Yuan/Yuan--Instruct-v0.1](https://huggingface.co/IEIT-Yuan/Yuan)
 
     Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
     documentation from [`PretrainedConfig`] for more information.
