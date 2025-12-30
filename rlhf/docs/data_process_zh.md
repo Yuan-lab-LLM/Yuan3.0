@@ -14,7 +14,7 @@
 
 ## Dataset
 
-下面是一条训练数据样本示例：
+训练数据必须遵循以下格式：
 
 ```json
 {
@@ -28,6 +28,7 @@
 }
 ```
 
+每条数据均必需包含`reward_method`、`language`、`enable_thinking_flag`与`expect_len`这四个字段，其中`reward_method`用于标识数据类别，`language`用于明确输入数据的语言类型，`enable_thinking_flag`用于指定该条数据在训练阶段是否启用思考模型，`expect_len`则用于定义模型输出结果的预期长度。
 
 ## 使用方法
 
@@ -37,10 +38,3 @@
 cd Yuan3.0/rlhf/verl
 python ./examples/data_preprocess/data_preprocess_select_except_len.py --input_path '<Specify input informations>' --output_path '<Specify path>' --split_type '<train/test>' --flag_image '<0/1>'
 ```
-
-## 脚本文件概览
-| 脚本文件 | 用途 | 特色功能 |
-|-----------|---------|------------------|
-| `data_process_select_except_len.py` | 通用数据处理 | 标准文本数据格式转换 |
-| `data_process_select_mllm_math_enable_except_len.py` | 多模态数学数据处理 | 实现图文融合，支撑数学推理任务 |
-| `data_process_select_tool_enable_except_len.py` | 工具专属数据处理 | 针对工具交互类数据的专业化处理 |
