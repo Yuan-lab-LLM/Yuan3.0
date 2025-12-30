@@ -27,7 +27,7 @@ mkdir -p $CHECKPOINT_PATH
 YUANVL_FULL_NPY_PATH=$CASE_CHECKPOINT_PATH/datanpy
 mkdir -p $YUANVL_FULL_NPY_PATH
 CLIP_MODEL_NAME=InternViT-448
-CLIP_DOWNLOAD_PATH=<Specify path>
+CLIP_DOWNLOAD_PATH='OpenGVLab/InternViT-300M-448px'
 CLIP_VISUAL_SIZE=1024
 CLIP_HIDDEN_SIZE=1024
 
@@ -133,7 +133,7 @@ TRAINING_ARGS=(
 
 MODEL_PARALLEL_ARGS=(
     --tensor-model-parallel-size 1
-    --pipeline-model-parallel-size 12
+    --pipeline-model-parallel-size 8
     --expert-model-parallel-size 1
     --use-distributed-optimizer
     --sequence-parallel
@@ -151,13 +151,6 @@ LOGGING_ARGS=(
     --load $CHECKPOINT_PATH_LOAD
     --tensorboard-dir "${CASE_CHECKPOINT_PATH}/tensorboard"
 )
-
-if [ -n "${WANDB_API_KEY}" ]; then
-    LOGGING_ARGS+=(
-        --wandb-project ${WANDB_PROJECT:-"Mixtral"}
-        --wandb-exp-name ${WANDB_NAME:-"Mixtral_8x7B"}
-    )
-fi
 
 
 torchrun ${DISTRIBUTED_ARGS[@]} pretrain_yuanvl.py \
