@@ -28,7 +28,7 @@
 }
 ```
 
-每条数据均必需包含`reward_method`、`language`、`enable_thinking_flag`与`expect_len`这四个字段，其中`reward_method`用于标识数据类别，`language`用于明确输入数据的语言类型，`enable_thinking_flag`用于指定该条数据在训练阶段是否启用思考模型，`expect_len`则用于定义模型输出结果的预期长度。
+每条数据须包含`reward_method`、`language`、`enable_thinking_flag`与`expect_len`这四个字段，其中`reward_method`用于标识数据类别，`language`用于明确输入数据的语言类型，`enable_thinking_flag`用于指定该条数据在训练阶段是否启用思考模型，`expect_len`则用于定义模型输出结果的预期长度。
 
 ## 使用方法
 
