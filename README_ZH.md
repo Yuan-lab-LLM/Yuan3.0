@@ -173,7 +173,7 @@ Yuan3.0 Flash 在多模态RAG评测Docmatix中领先Claude3.5、OpenAI GPT-4o �
 
 ---
 
-**3.4  文本摘要生成评测：SummEval**🏆
+**5.4  文本摘要生成评测：SummEval**🏆
 
 摘要生成是智能体应用中用户历史信息压缩的核心需求，源3.0在业界权威摘要生成评测SummEval的词汇重叠、语义相似度、事实一致性3大类能力上，实现平均精度领先DeepSeek-V3大模型。
 
