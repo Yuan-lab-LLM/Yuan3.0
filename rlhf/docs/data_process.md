@@ -29,7 +29,7 @@ The training data must comply with the following format:
 }
 ```
 
-Each piece of data must contain the four mandatory fields, namely `reward_method`, `language`, `enable_thinking_flag` and `expect_len`. Among them, `reward_method` serves to identify the data category, `language` is used to specify the language type of the input data, `enable_thinking_flag` indicates whether the thinking model is enabled for the data during training, and `expect_len` defines the expected length of the model output.
+Each piece of data is supposed to contain the four mandatory fields, namely `reward_method`, `language`, `enable_thinking_flag` and `expect_len`. Among them, `reward_method` serves to identify the data category, `language` is used to specify the language type of the input data, `enable_thinking_flag` indicates whether the thinking model is enabled for the data during training, and `expect_len` defines the expected length of the model output.
 
 ## Usage
 
@@ -39,13 +39,3 @@ Run the following command to start data conversion:
 cd Yuan3.0/rlhf/verl
 python examples/data_preprocess/data_preprocess_select_except_len.py --input_path '<Specify input information>' --output_path '<Specify path>' --split_type '<train/test>' --flag_image '<0/1>'
 ```
-
-## Script Overview
-
-| Script | Purpose | Special Features |
-|-----------|---------|------------------|
-| `data_process_select_except_len.py` | General data processing | Standard text data conversion |
-| `data_process_select_mllm_math_enable_except_len.py` | Multimodal math data | Image-text integration for mathematical reasoning |
-| `data_process_select_tool_enable_except_len.py` | Tool-specific data | Specialized processing for tool interaction data |
-
-
