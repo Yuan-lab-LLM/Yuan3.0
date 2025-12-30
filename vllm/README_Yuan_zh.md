@@ -2,7 +2,7 @@
 
 我们强烈建议使用 Yuan3.0 Flash 的最新版本 docker 镜像。
 ```bash
-docker pull yuanmodel/vllm:v0.11.0
+docker pull yuanlabai/vllm:v0.11.0
 ```
 
 ##  2.源码编译（可选）
@@ -20,7 +20,7 @@ pip install -e .
 
 您可以使用以下 Docker 命令启动 Yuan3.0 Flash 容器实例：
 ```bash
-docker run --gpus all --privileged --ulimit stack=68719476736 --shm-size=1000G -itd -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints --name your_name yuanmodel/vllm:v0.11.0
+docker run --gpus all --privileged --ulimit stack=68719476736 --shm-size=1000G -itd -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints --name your_name yuanlabai/vllm:v0.11.0
 docker exec -it your_name bash
 ```
 
