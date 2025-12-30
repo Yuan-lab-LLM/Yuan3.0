@@ -10,14 +10,14 @@
     src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Yuan%20LLM-ffc107?color=ffc107&logoColor=white"/></a>
   <a href="https://www.modelscope.cn/profile/Yuanlab"><img alt="ModelScope"
     src="https://img.shields.io/badge/👾%20ModelScope-Yuan%20LLM-6b4fbb?color=6b4fbb&logoColor=white"/></a>
-  <br>
   <a href="https://x.com/Yuanlabai"><img alt="Twitter Follow"
     src="https://img.shields.io/badge/Twitter-Yuanlabai-white?logo=x&logoColor=white"/></a>
-  <a href="https://arxiv.org/abs/2405.17976"><img alt="arXiv"
+  <a href="https://github.com/Yuan-lab-LLM/Yuan3.0/blob/main/docs/YUAN3.0_FLASH-paper.pdf"><img alt="arXiv"
     src="https://img.shields.io/badge/arXiv-Yuan%203.0%20Paper-b31b1b?logo=arxiv&logoColor=white"/></a>
-    <a href="model_license">
-    <img alt="Model License" src="(https://github.com/Yuan-lab-LLM/Yuan3.0?tab=License-1-ov-file" />
   </a>
+
+
+  
 </div>
 
 
@@ -43,7 +43,7 @@
 
 ## 1. 简介
 
-Yuan 3.0 Flash 由 **YuanLab.ai 团队**开发，是一款 **40B 参数规模的多模态基础大模型**，采用稀疏混合专家（MoE）架构，单次推理仅激活约 **3.7B 参数**。通过创新的强化学习训练方法（RAPO），在提升推理准确性的同时显著降低推理 token 消耗，探索 "更少算力、更高智能" 的大模型创新路径。同时，我们发布了Yuan3.0模型的<a href="https://arxiv.org/abs/2405.17976" target="_blank">**技术报告**</a>，可以通过论文查看更详细的技术细节与测评结果。
+Yuan 3.0 Flash 由 **YuanLab.ai 团队**开发，是一款 **40B 参数规模的多模态基础大模型**，采用稀疏混合专家（MoE）架构，单次推理仅激活约 **3.7B 参数**。通过创新的强化学习训练方法（RAPO），在提升推理准确性的同时显著降低推理 token 消耗，探索 "更少算力、更高智能" 的大模型创新路径。同时，我们发布了Yuan3.0模型的<a href="https://github.com/Yuan-lab-LLM/Yuan3.0/blob/main/docs/YUAN3.0_FLASH-paper.pdf" target="_blank">**技术报告**</a>，可以通过论文查看更详细的技术细节与测评结果。
 
 <div align=center> <img src=https://github.com/Yuan-lab-LLM/Yuan3.0/blob/main/docs/Yuan3.0-architecture.png width=80% />
 
@@ -182,7 +182,7 @@ Yuan3.0 Flash 在多模态RAG评测Docmatix中领先Claude3.5、OpenAI GPT-4o �
 
 | Models | Avg. | 词汇重叠<br>ROUGE-1 | 词汇重叠<br>ROUGE-2 | 语义相似度<br>BERTScore | 事实一致性<br>SummaC |
 |--------|:---------:|:-----------:|:-----------:|:--------------:|:------------:|
-| **DeepSeek-V3** | **59.3** | 25.5 | 9.2 | 86.3 | 68.2 |
+| **DeepSeek-V3** | 59.3 | 25.5 | 9.2 | 86.3 | 68.2 |
 | **DeepSeek-V3.2** | 51.4 | 33.3 | 11.9 | 85.6 | 41.8 |
 | **Gemini-2.0-Flash** | 45.4 | 24.8 | 8.7 | 85.7 | 29.5 |
 | **Claude-3.5-Sonnet** | 45.4 | 24.1 | 8.3 | 85.2 | 30.7 |
