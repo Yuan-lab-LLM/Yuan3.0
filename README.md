@@ -7,13 +7,13 @@
 <hr>
 <div align="center" style="line-height: 1;">
   <a href="https://huggingface.co/YuanLabAI"><img alt="Hugging Face"
-    src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Yuan%20LLM-ffc107?color=ffc107&logoColor=white"/></a>
+    src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Yuan3.0-ffc107?color=ffc107&logoColor=white"/></a>
   <a href="https://www.modelscope.cn/profile/Yuanlab"><img alt="ModelScope"
-    src="https://img.shields.io/badge/💾%20ModelScope-Yuan%20LLM-6b4fbb?color=6b4fbb&logoColor=white"/></a>
+    src="https://img.shields.io/badge/💾%20ModelScope-Yuan3.0-6b4fbb?color=6b4fbb&logoColor=white"/></a>
   <a href="https://x.com/Yuanlabai"><img alt="Twitter Follow"
     src="https://img.shields.io/badge/Twitter-Yuanlabai-white?logo=x&logoColor=white"/></a>
   <a href="https://github.com/Yuan-lab-LLM/Yuan3.0/blob/main/docs/YUAN3.0_FLASH-paper.pdf"><img alt="arXiv"
-    src="https://img.shields.io/badge/arXiv-Yuan%203.0%20Paper-b31b1b?logo=arxiv&logoColor=white"/></a>
+    src="https://img.shields.io/badge/arXiv-Yuan3.0%20Paper-b31b1b?logo=arxiv&logoColor=white"/></a>
   </a>
 
 
