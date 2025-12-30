@@ -31,7 +31,7 @@ Yuan3.0 Flash Model 仅支持 vLLm V1架构。
 vllm serve /path/yuanvl3.0-Flash --port 8100 --gpu-memory-utilization 0.9 --tensor-parallel-size 2
 ```
 
-**3.2  请求调用**
+**3.3  请求调用**
 
 ```python
 from openai import OpenAI
