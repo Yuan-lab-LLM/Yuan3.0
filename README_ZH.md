@@ -5,51 +5,25 @@
 </div>
 
 
-<p align="center">
-👾 <a href="https://www.modelscope.cn/profile/YuanLLM" target="_blank">ModelScope</a> • 🤗 <a href="https://huggingface.co/IEITYuan" target="_blank">Hugging Face</a> • 📎  <a href="https://arxiv.org/abs/2405.17976" target="_blank">源3.0论文</a>
-</p>
-
-<p align="center">
-👾 <a href="https://www.modelscope.cn/profile/YuanLLM" target="_blank">ModelScope</a> • 🤗 <a href="https://huggingface.co/IEITYuan" target="_blank">Hugging Face</a> • 📎 <a href="https://arxiv.org/abs/2405.17976" target="_blank">源3.0论文</a> • 𝕏 <a href="https://x.com/Yuanlabai" target="_blank">X</a>
-</p>
-
-
-
 <div align="center">
-  <img src="https://github.com/IEIT-Yuan/Yuan-2.0/blob/main/docs/Yuan2.0_logo.png?raw=true" width="60%" alt="Yuan-3.0" />
+  <img src="https://github.com/IEIT-Yuan/Yuan-2.0/blob/main/docs/Yuan3.0_logo.png?raw=true" width="60%" alt="Yuan-3.0" />
 </div>
 <hr>
 <div align="center" style="line-height: 1;">
-  <a href="[https://huggingface.co/IEITYuan](https://huggingface.co/YuanLabAI)"><img alt="Hugging Face"
+  <a href="https://huggingface.co/YuanLabAI"><img alt="Hugging Face"
     src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Yuan%20LLM-ffc107?color=ffc107&logoColor=white"/></a>
-  <a href="https://www.modelscope.cn/profile/YuanLLM"><img alt="ModelScope"
+  <a href="https://www.modelscope.cn/profile/Yuanlab"><img alt="ModelScope"
     src="https://img.shields.io/badge/👾%20ModelScope-Yuan%20LLM-6b4fbb?color=6b4fbb&logoColor=white"/></a>
   <br>
   <a href="https://x.com/Yuanlabai"><img alt="Twitter Follow"
     src="https://img.shields.io/badge/Twitter-Yuanlabai-white?logo=x&logoColor=white"/></a>
-  <a href="https://github.com/IEIT-Yuan/Yuan-2.0/blob/main/docs/wechat.jpg?raw=true"><img alt="Wechat"
-    src="https://img.shields.io/badge/WeChat-Yuan%20LLM-brightgreen?logo=wechat&logoColor=white"/></a>
-  <br>
-  <a href="https://github.com/IEIT-Yuan/Yuan-2.0/blob/main/LICENSE-Yuan"><img alt="Model License"
-    src="https://img.shields.io/badge/Model_License-Yuan_Agreement-f5de53?&color=f5de53"/></a>
   <a href="https://arxiv.org/abs/2405.17976"><img alt="arXiv"
     src="https://img.shields.io/badge/arXiv-Yuan%203.0%20Paper-b31b1b?logo=arxiv&logoColor=white"/></a>
-</div>
-
-
-
-
-<div align="center">
-
-    
-  <a href="code_license">
-    <img alt="Code License" src="https://img.shields.io/badge/Apache%202.0%20-green?style=flat&label=Code%20License&link=https%3A%2F%2Fgithub.com%2FIEIT-Yuan%2FYuan-2.0-MoE%3Ftab%3DApache-2.0-1-ov-file"/>
-  </a>
-  <a href="model_license">
+    <a href="model_license">
     <img alt="Model License" src="https://img.shields.io/badge/Yuan3.0%20License-blue?style=flat&logoColor=blue&label=Model%20License&color=blue&link=https%3A%2F%2Fgithub.com%2FIEIT-Yuan%2FYuan-2.0%2Fblob%2Fmain%2FLICENSE-Yuan" />
   </a>
-
 </div>
+
 
 
 <h4 align="center">
