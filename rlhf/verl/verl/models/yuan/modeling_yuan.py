@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2023 IEIT-Yuan and the HuggingFace Inc. team. All rights reserved.
+# Copyright 2023 YuanLab and the HuggingFace Inc. team. All rights reserved.
 #
 # This code is based on EleutherAI's GPT-NeoX library and the GPT-NeoX
 # and OPT implementations in this library. It has been modified from its
@@ -58,7 +58,6 @@ from einops import rearrange
 
 logger = logging.get_logger(__name__)
 
-_CHECKPOINT_FOR_DOC = "IEITYuan/Yuan-M32"
 _CONFIG_FOR_DOC = "YuanConfig"
 
 try:
@@ -1302,9 +1301,6 @@ class YuanForCausalLM(YuanPreTrainedModel, GenerationMixin):
 
         ```python
         >>> from transformers import AutoTokenizer, YuanForCausalLM
-
-        >>> model = YuanForCausalLM.from_pretrained("IEITYuan/Yuan-M32")
-        >>> tokenizer = AutoTokenizer.from_pretrained("IEITYuan/Yuan-M32")
 
         >>> prompt = "Hey, are you conscious? Can you talk to me?"
         >>> inputs = tokenizer(prompt, return_tensors="pt")

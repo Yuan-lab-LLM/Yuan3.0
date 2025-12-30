@@ -430,8 +430,6 @@ def _load_hf_model(config, model_config, is_value_model, local_cache_path):
             model = MistralForSequenceClassification.from_pretrained(
                 local_model_path,
                 torch_dtype="auto",
-                # device_map="auto",  # disable auto device_map, the HF weight is only loaded to CPU in src_rank
-                # low_cpu_mem_usage=True
             )  # use score head instead of lm_head
             state_dict = model.state_dict()
             state_dict["lm_head.weight"] = state_dict["score.weight"]
@@ -439,7 +437,7 @@ def _load_hf_model(config, model_config, is_value_model, local_cache_path):
                 :32000
             ]  # workaround, 32001 -> 32000
             is_value_model = True
-        elif 'yuanvl' in config.model.path.lower():
+        elif 'yuan' in config.model.path.lower():
             trust_remote_code=True,
             from verl.models.yuanvl.modeling_yuanvl_chat import YuanVLChatModel 
             model = YuanVLChatModel.from_pretrained(
@@ -448,31 +446,11 @@ def _load_hf_model(config, model_config, is_value_model, local_cache_path):
                 trust_remote_code=True,
             )
             state_dict = model.state_dict()
-        elif 'yuan' in config.model.path.lower():
-            from verl.models.yuan.modeling_yuan import YuanForSequenceClassification, YuanForCausalModel
-            trust_remote_code=True
-            if is_value_model:
-                model = YuanForSequenceClassification.from_pretrained(
-                    local_model_path,
-                    torch_dtype="auto",
-                    trust_remote_code=True,
-                )
-                state_dict = model.state_dict()
-                state_dict["lm_head.weight"] = state_dict["score.weight"]
-            else:
-                model = YuanForCausalModel.from_pretrained(
-                    local_model_path,
-                    torch_dtype="auto",
-                    trust_remote_code=True,
-                )
-                state_dict = model.state_dict()
         else:
             model = AutoModelForCausalLM.from_pretrained(
                 local_model_path,
                 torch_dtype="auto",
                 trust_remote_code=True,
-                # device_map="auto", # disable auto device_map, the HF weight is only loaded to CPU in src_rank
-                # low_cpu_mem_usage=True
             )
             state_dict = model.state_dict()
 
@@ -612,8 +590,6 @@ def get_parallel_gptmodel_from_config(
         rotary_base=hf_config.rope_theta,
         **rope_scaling_args,
     )
-    # # for layer in parallel_model.decoder.layers:
-    # layer.self_attention.core_attention.flash_attention.softmax_scale = None
     if post_process and value:
         from verl.models.llama.megatron.layers.parallel_linear import LinearForLastLayer
 

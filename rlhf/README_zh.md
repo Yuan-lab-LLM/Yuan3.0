@@ -21,7 +21,6 @@
   - [推理服务](#推理服务)
     - [linux部署](#linux部署)
   - [联系我们]()
-  - [参考与致谢](#参考与致谢)
 
 # Yuan3.0 Flash
 
@@ -93,5 +92,5 @@ cp -rf $SPIDER_PATH /home/
 
 ### 联系我们
 
-联系方式：air_service@ieisystem.com
+联系方式：service@yuanlab.ai
 

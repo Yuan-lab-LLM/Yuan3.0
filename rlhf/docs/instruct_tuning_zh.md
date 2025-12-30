@@ -9,7 +9,8 @@
 运行Yuan3.0 Flash 40B模型SFT的示例脚本如下：
 
 ```shell
-cd <Specific_Path>/Megatron-LM
+# cd <Specific_Path>/Megatron-LM
+cd Yuan3.0/rlhf/megatron-lm
 bash examples/pretrain_yuan3.0_40B_sft.sh
 ```
 

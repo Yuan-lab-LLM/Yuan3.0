@@ -63,7 +63,6 @@ temperature=1.0
 top_p=1.0
 top_k=-1 # 0 for HF rollout, -1 for vLLM rollout
 val_top_p=0.7
-enable_thinking_flag=False
 
 # Performance Related Parameter
 use_dynamic_bsz=True
@@ -102,7 +101,6 @@ python3 -m recipe.dapo.main_dapo \
     data.filter_overlong_prompts=${enable_overlong_prompts_filter} \
     data.filter_overlong_prompts_workers=100 \
     data.image_key=images \
-    data.enable_thinking_flag=${enable_thinking_flag} \
     actor_rollout_ref.rollout.n=${n_resp_per_prompt} \
     algorithm.adv_estimator=${adv_estimator} \
     algorithm.use_kl_in_reward=${use_kl_in_reward} \

@@ -28,12 +28,12 @@ reward_model:
       log: False
     max_resp_len: ${data.max_response_length}
     n_samples_per_prompt: ${actor_rollout_ref.rollout.n}
-    qwen72b_inst_host: []
-    qwen72b_vl_host: []
-    yuanm32_host: []
-    bert_host: []
-    process_reward_host: []
-    debug_reward_data_path: null
+    qwen72b_inst_host: [192.168.0.1]
+    qwen72b_vl_host: [192.168.0.1]
+    yuanm32_host: [192.168.0.1]
+    bert_host: [192.168.0.1]
+    process_reward_host: [192.168.0.1]
+    debug_reward_data_path: "/tmp/"
     reward_vllm_args:
       timeout: 3000
       max_tokens: 2048

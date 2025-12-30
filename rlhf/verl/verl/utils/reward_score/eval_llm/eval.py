@@ -72,9 +72,9 @@ def llm_score_math_verify(predict,answer):
     else:
         return 1.0 if math_verify_reward(predict,answer) else -1.0
 
-###llm_choice####
+# llm_choice
 
-###llm_choice math verify
+# llm_choice math verify
 def math_verify_extract2(content):
     ind = content.rfind('\\boxed')
     if ind == -1 and 'boxed' in content:
@@ -120,7 +120,7 @@ def llm_score_choice_verify(predict,answer):
         return 1.0 if (math_verify_reward(predict,answer1) or math_verify_reward2(predict,answer2)) else -1.0
 
 
-##llm_choice model##
+# llm_choice model#
 def parse_output(output):
     pattern = r"\\?boxed{(.*?)}"
     answer_matches = re.findall(pattern, output)
@@ -192,7 +192,7 @@ def llm_choice_qwen_vllm(reward_input, api, timeout, max_tokens):
         return -1.0
 
 
-###代码score
+# 代码score
 
 CODE_SAVE_PATH = './code_tmp/middle_py/'
 if not os.path.exists(CODE_SAVE_PATH):
@@ -214,7 +214,7 @@ def check_force_code(ans_text, unittest_lst, check_num = 5):
     ans_code = re.sub(r'\\\s*<n>','\\<n>',ans_code)
 
     matches_input = re.findall(r'input\(\)', ans_code)
-    #############ans_code是最基本的代码片段
+    # ans_code是最基本的代码片段
     if len(matches_input) == 1:
         total_unittest = len(unittest_lst)
         if check_num == 0 or check_num > total_unittest:
@@ -471,7 +471,7 @@ def extract_solution_nosearch(solution_str):
         solution_str=solution_str.replace("<｜end▁of▁sentence｜>","")
     return solution_str.strip()
 
-###llm_general###
+# llm_general
 DEFAULT__PROMPT_TEMPLATE="""
 You are a skilled little expert at scoring responses. You should evaluate given responses based on the given judging criteria.\n Given the context of the conversation (the last round is the User's query) and multiple responses from the Assistant, you need to refer to the [General Evaluation Criteria] to score the responses. Based on the general evaluation criteria, state potential other specific criteria to the query, the weights of different criteria, and then provide an overall comprehensive score upon them.\n Each score is an integer between 1 and 10, with a higher score indicating that the response meets the relevant criteria more closely. For example, a score of 1 means the response does not meet the criteria at all, a score of 6 means the response meets only some parts, and a score of 10 means the response perfectly meets the evaluation criteria.\n Before scoring, please analyze step by step. Your scoring needs to be as strict as possible.
 
@@ -602,8 +602,8 @@ def llm_general_reward(reward_input, api, timeout, max_tokens):
             model=judge_model,
             messages=messages,
             max_tokens=max_tokens,
-            temperature=1e-6, #temperature,
-            top_p=1.0, #top_p,
+            temperature=1e-6,
+            top_p=1.0,
             extra_body={
                 "chat_template_kwargs": {"enable_thinking": False},
                 },
@@ -620,7 +620,7 @@ def llm_general_reward(reward_input, api, timeout, max_tokens):
         print(e,"error1>>>>>>>>")
         return [-1.0] * len(response_list), None
 
-####len-reward
+# len-reward
 
 def len_reward(acc_reward_outputs, threshold, max_gen_len):
     """Compute length-based rewards to discourage overthinking and promote token efficiency."""
@@ -659,7 +659,7 @@ def len_reward(acc_reward_outputs, threshold, max_gen_len):
     return acc_reward_outputs
 
 
-###repetition-penalty
+# repetition-penalty
 
 def get_repetition_penalty_reward(reward_output, ngram_size=20, max_penalty=-1, lowest_score=-1.0):
     """
@@ -693,7 +693,7 @@ def get_repetition_penalty_reward(reward_output, ngram_size=20, max_penalty=-1, 
     scaling = 1 - len(ngrams) / total
     reward = scaling * max_penalty
 
-    #if not only_apply_to_wrong and is_correct:
+    # if not only_apply_to_wrong and is_correct:
     if reward > -0.2:
         reward = 0.0
     else:
@@ -702,7 +702,7 @@ def get_repetition_penalty_reward(reward_output, ngram_size=20, max_penalty=-1, 
     return reward
 
 
-###language_consistency
+# language_consistency
 
 import jieba
 
@@ -753,7 +753,7 @@ def language_consistency_penalty(input_text, output_text, allowed_english_words=
     if allowed_english_words is None:
         allowed_english_words = get_default_allowed_english_words()
 
-    ############## 过滤去除latex符号
+    # 过滤去除latex符号
     # 步骤1: 定义LaTeX命令的正则表达式模式
     # 此模式匹配以反斜杠开头的LaTeX命令，包括命令名和可选参数。
     # 命令名由字母组成，参数可以是方括号[]或花括号{}内的内容。
@@ -778,7 +778,7 @@ def language_consistency_penalty(input_text, output_text, allowed_english_words=
     seg_list = jieba.cut(output_text, cut_all=False)
     words = list(seg_list)
 
-    ########## 过滤规则：
+    # 过滤规则：
     # 1. 去除数字、数学运算符号、标点符号、空白字符
     # 2. 去除单个英文字母
     # 3. 只保留有意义的中文词汇和长度≥2的英文单词
@@ -796,12 +796,12 @@ def language_consistency_penalty(input_text, output_text, allowed_english_words=
             if not (len(cleaned_word) == 1 and re.match(r'^[a-zA-Z]$', cleaned_word)):
                 filtered_words.append(cleaned_word)
 
-    ######### 计算仅中文词汇和长度≥2的英文单词
+    # 计算仅中文词汇和长度≥2的英文单词
     total_words = len(filtered_words)
     if total_words == 0:
         return 0.0
 
-    ######### 去除英文单词白名单
+    # 去除英文单词白名单
     inconsistent_count = 0
     # inconsistent_words = []
     for word in filtered_words:
@@ -811,7 +811,7 @@ def language_consistency_penalty(input_text, output_text, allowed_english_words=
             if word.lower() not in allowed_english_words and word not in input_text:
                 inconsistent_count += 1
 
-    ######### 计算不一致比例
+    # 计算不一致比例
     penalty_ratio = inconsistent_count / total_words
     return penalty_ratio
 

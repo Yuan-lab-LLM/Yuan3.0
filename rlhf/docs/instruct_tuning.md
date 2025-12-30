@@ -9,7 +9,7 @@ This document provides guidance and instructions for performing Supervised Fine-
 To run supervised fine-tuning for Yuan3.0 Flash 40B model, use the following example script:
 
 ```shell
-cd <Specific_Path>/Megatron-LM
+# cd <Specific_Path>/Megatron-LM
 cd Yuan3.0/rlhf/megatron-lm
 bash examples/pretrain_yuan3.0_40B_sft.sh
 ```

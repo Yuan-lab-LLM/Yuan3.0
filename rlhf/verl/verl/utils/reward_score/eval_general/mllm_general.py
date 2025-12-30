@@ -187,7 +187,7 @@ def mllm_general_reward(reward_input, api, timeout, max_tokens):
         judge_model = models.data[0].id
 
         response = client.chat.completions.create(
-            model=judge_model, #model_path,
+            model=judge_model,
             messages=[{
                 "role": "user",
                 "content": [
@@ -212,7 +212,7 @@ def mllm_general_reward(reward_input, api, timeout, max_tokens):
         )
         text = response.choices[0].message.content
 
-        #extracting scores as a list over here
+        # extracting scores as a list over here
         scores = extract_composite_scores(text)
         if scores is None or len(scores) != len(response_list):
             return [-1.0] * len(response_list), None

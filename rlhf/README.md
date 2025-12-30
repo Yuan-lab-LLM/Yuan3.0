@@ -44,7 +44,7 @@ docker run --gpus all -itd --network=host -v /path/to/yuan_3.0:/workspace/yuan_3
 docker exec -it your_name bash
 ```
 
-We only support using the provided docker image:
+We only support using the provided docker image.
 
 #### SQL Environment Configuration
 
@@ -88,4 +88,4 @@ vllm deployment process, see documentation [here](../vllm/README_Yuan.md)
 
 ### Contact Us
 
-Contact us：air_service@ieisystem.com
+Contact us: service@yuanlab.ai

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-#set -x
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 ulimit -c 0
@@ -14,22 +13,12 @@ NUM_NODES=${NNODES:-"1"}
 NODE_RANK=${NODE_RANK:-"0"}
 WORLD_SIZE=$(($GPUS_PER_NODE*$NUM_NODES))
 
-echo $MASTER_ADDR
-echo $NUM_NODES
-echo $NODE_RANK
-echo $WORLD_SIZE
-CASE_NAME=YuanVL_40B
-CLIP_DOWNLOAD_PATH=path/to/InternViT-448
-
-CASE_CHECKPOINT_PATH=./$CASE_NAME
+CASE_CHECKPOINT_PATH=<Specify path>
 CHECKPOINT_PATH=$CASE_CHECKPOINT_PATH/ckpt
-CHECKPOINT_PATH_LOAD=$CASE_CHECKPOINT_PATH/ckpt
-
+CHECKPOINT_PATH_LOAD=<Specify path>
 LOG_PATH=$CASE_CHECKPOINT_PATH/log/log-${NUM_NODES}n-$DATETIME
-
-DATA_PATH=$(cat ./dataset_train.txt)
-
-TOKENIZER_MODEL=./hf_tokenizer
+DATA_PATH=<Specify path and file prefix>_text_document
+TOKENIZER_MODEL=<Specify path to file>
 
 
 mkdir -p $LOG_PATH
@@ -38,6 +27,7 @@ mkdir -p $CHECKPOINT_PATH
 YUANVL_FULL_NPY_PATH=$CASE_CHECKPOINT_PATH/datanpy
 mkdir -p $YUANVL_FULL_NPY_PATH
 CLIP_MODEL_NAME=InternViT-448
+CLIP_DOWNLOAD_PATH=<Specify path>
 CLIP_VISUAL_SIZE=1024
 CLIP_HIDDEN_SIZE=1024
 
@@ -57,7 +47,7 @@ MODEL_VL_ARGS=(
     --yuanvl-use-te-imagemlp
     --eod-mask-loss
     --reset-position-ids
-    --data-cut-length 16384
+    --data-cut-length 33792
 )
 
 
@@ -100,7 +90,9 @@ MODEL_ARGS=(
     --use-flash-attn
     --no-bias-dropout-fusion
     --ckpt-format torch
+    --finetune
 )
+
 
 MOE_ARGS=(
     --num-experts 32
@@ -120,13 +112,13 @@ DATA_ARGS=(
 
 TRAINING_ARGS=(
     --micro-batch-size 1
-    --global-batch-size 32
+    --global-batch-size 1440
     --num-workers 16
-    --lr 8e-6
-    --train-iters 1234
-    --lr-decay-iters 1234
+    --lr 8.787e-6
+    --train-iters 13125
+    --lr-decay-iters 13125
     --lr-decay-style constant
-    --min-lr 8e-6
+    --min-lr 8.787e-6
     --weight-decay 0.1
     --lr-warmup-iters 0
     --clip-grad 1.0
@@ -141,7 +133,7 @@ TRAINING_ARGS=(
 
 MODEL_PARALLEL_ARGS=(
     --tensor-model-parallel-size 1
-    --pipeline-model-parallel-size 8
+    --pipeline-model-parallel-size 12
     --expert-model-parallel-size 1
     --use-distributed-optimizer
     --sequence-parallel
@@ -150,7 +142,7 @@ MODEL_PARALLEL_ARGS=(
 LOGGING_ARGS=(
     --log-interval 1
     --timing-log-level 2
-    --save-interval 50
+    --save-interval 525
     --eval-interval 10000000
     --eval-iters 10
     --log-progress
@@ -162,10 +154,11 @@ LOGGING_ARGS=(
 
 if [ -n "${WANDB_API_KEY}" ]; then
     LOGGING_ARGS+=(
-        --wandb-project ${WANDB_PROJECT:-"YuanVL"}
-        --wandb-exp-name ${WANDB_NAME:-"YuanVL_40B"}
+        --wandb-project ${WANDB_PROJECT:-"Mixtral"}
+        --wandb-exp-name ${WANDB_NAME:-"Mixtral_8x7B"}
     )
 fi
+
 
 torchrun ${DISTRIBUTED_ARGS[@]} pretrain_yuanvl.py \
     ${MODEL_ARGS[@]} \
@@ -175,4 +168,5 @@ torchrun ${DISTRIBUTED_ARGS[@]} pretrain_yuanvl.py \
     ${MODEL_PARALLEL_ARGS[@]} \
     ${LOGGING_ARGS[@]} \
     ${MODEL_VL_ARGS[@]} 2>&1 | tee $LOG_PATH/$NODE_RANK.log
+
 

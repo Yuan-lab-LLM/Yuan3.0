@@ -352,8 +352,6 @@ def hf_to_mcore_config_dpskv3(
         moe_router_dtype="fp64",
         disable_bf16_reduced_precision_matmul=True,
         # Other optimizations
-        # deallocate_pipeline_outputs=True,
-        # gradient_accumulation_fusion=True,
         persist_layer_norm=True,
         bias_activation_fusion=True,
         bias_dropout_fusion=True,
