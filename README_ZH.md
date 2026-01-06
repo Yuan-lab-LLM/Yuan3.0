@@ -12,7 +12,7 @@
     src="https://img.shields.io/badge/💾%20ModelScope-Yuan3.0-6b4fbb?color=6b4fbb&logoColor=white"/></a>
   <a href="https://x.com/Yuanlabai"><img alt="Twitter Follow"
     src="https://img.shields.io/badge/Twitter-Yuanlabai-white?logo=x&logoColor=white"/></a>
-  <a href="https://github.com/Yuan-lab-LLM/Yuan3.0/blob/main/docs/YUAN3.0_FLASH-paper.pdf"><img alt="arXiv"
+  <a href="https://arxiv.org/abs/2601.01718"><img alt="arXiv"
     src="https://img.shields.io/badge/arXiv-Yuan3.0%20Paper-b31b1b?logo=arxiv&logoColor=white"/></a>
 
 
@@ -42,7 +42,7 @@
 
 ## 1. 简介
 
-Yuan 3.0 Flash 由 **YuanLab.ai 团队**开发，是一款 **40B 参数规模的多模态基础大模型**，采用稀疏混合专家（MoE）架构，单次推理仅激活约 **3.7B 参数**。通过创新的强化学习训练方法（RAPO），在提升推理准确性的同时显著降低推理 token 消耗，探索 "更少算力、更高智能" 的大模型创新路径。同时，我们发布了Yuan3.0模型的<a href="https://github.com/Yuan-lab-LLM/Yuan3.0/blob/main/docs/YUAN3.0_FLASH-paper.pdf" target="_blank">**技术报告**</a>，可以通过论文查看更详细的技术细节与测评结果。
+Yuan 3.0 Flash 由 **YuanLab.ai 团队**开发，是一款 **40B 参数规模的多模态基础大模型**，采用稀疏混合专家（MoE）架构，单次推理仅激活约 **3.7B 参数**。通过创新的强化学习训练方法（RAPO），在提升推理准确性的同时显著降低推理 token 消耗，探索 "更少算力、更高智能" 的大模型创新路径。同时，我们发布了Yuan3.0模型的<a href="https://arxiv.org/abs/2601.01718" target="_blank">**技术报告**</a>，可以通过论文查看更详细的技术细节与测评结果。
 
 <div align=center> <img src=https://github.com/Yuan-lab-LLM/Yuan3.0/blob/main/docs/Yuan3.0-architecture.png width=80% />
 
