@@ -42,7 +42,7 @@
 
 ## 1. Introduction
 
-Yuan 3.0 Flash, developed by the **YuanLab.ai team**, is a **40B parameter multimodal foundation model** that employs a Mixture of Experts (MoE) architecture, activating only approximately **3.7B parameters** per inference. Through innovative reinforcement learning training methods (RAPO), it significantly reduces inference token consumption while improving reasoning accuracy, exploring the innovative path of "less computation, higher intelligence" for large language models. We have also released the <a href="https://github.com/Yuan-lab-LLM/Yuan3.0/blob/main/docs/YUAN3.0_FLASH-paper.pdf" target="_blank">**technical report**</a> for the Yuan3.0 model, where you can find more detailed technical information and evaluation results.
+Yuan 3.0 Flash, developed by the **YuanLab.ai team**, is a **40B parameter multimodal foundation model** that employs a Mixture of Experts (MoE) architecture, activating only approximately **3.7B parameters** per inference. Through innovative reinforcement learning training methods (RAPO), it significantly reduces inference token consumption while improving reasoning accuracy, exploring the innovative path of "less computation, higher intelligence" for large language models. We have also released the <a href="https://arxiv.org/abs/2601.01718" target="_blank">**technical report**</a> for the Yuan3.0 model, where you can find more detailed technical information and evaluation results.
 
 <div align=center> <img src=https://github.com/Yuan-lab-LLM/Yuan3.0/blob/main/docs/Yuan3.0-architecture.png width=80% />
 
