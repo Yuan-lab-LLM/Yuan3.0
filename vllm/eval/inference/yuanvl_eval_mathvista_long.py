@@ -20,7 +20,6 @@ from tqdm import tqdm  # 导入 tqdm 进度条
 import time  # 用于计算运行时间
 import uuid
 
-
 _T = TypeVar("_T")
 class MediaIO(ABC, Generic[_T]):
 
@@ -236,7 +235,7 @@ def get_dataset(test_path, prompt, dataset):
             #prompt_math = 'Hint: Please answer the question requiring a Python list as an answer and provide the final list, e.g., [1, 2, 3], [1.2, 1.3, 1.4], at the end,'
         #    prompt_math = 'Please answer the question and give step by step reasoning before you answer. Use the format \"Final answer: ..\" and put the final answer in a latex box \"\\boxed{}\" in the end. Hint: the question requires a Python list as an answer and provide the final list, e.g., [1, 2, 3], [1.2, 1.3, 1.4]\n\nQuestion: '
         #image, question, pid, annotation = 'eval/datasets/MathVista/' + data['image'], data['question'], data['pid'], data['answer']
-        prompt_pre = "Your task is to answer the question and give step by step reasoning before you answer, and when you're ready to answer, please use the format \"Final answer: ..\" and put the final answer in a latex box \"\\boxed{}\"\n\n"
+        #prompt_pre = "Your task is to answer the question and give step by step reasoning before you answer, and when you're ready to answer, please use the format \"Final answer: ..\" and put the final answer in a latex box \"\\boxed{}\"\n\nQuestion:"
 
         image, question, pid, annotation = 'eval/datasets/MathVista/' + data['image'], data['question'], data['pid'], data['answer']
         question = question[0].lower()+question[1:]
@@ -267,7 +266,7 @@ def get_dataset(test_path, prompt, dataset):
         idata_dict = {
             #'question': COT_INSTRUCTION.format(question_text=question),
             #'question': prompt_math + question,
-            'question': prompt_pre + prompt_math + question,
+            'question': prompt_math + question,
             #'question': '<|begin_of_sentence|><|User|>' + prompt_pre + question,
             'question_id': pid,
             'annotation': annotation,
@@ -295,7 +294,7 @@ def generate_answer1(question, port, vllm_api, case_name, topk, topp, temperatur
     api_index = idx % len(vllm_api)
     api = vllm_api[api_index]
     print(api, case_name)
-
+    #image_path = '/mnt/beegfs3/zhaoxudong/code/image.jpeg'
     image = PIL.Image.open(image_path)
     base64_image = encode_image_base64(image)
     #prompt = '<image>请描述这张图片的内容<sep>'
@@ -340,7 +339,6 @@ def generate_answer1(question, port, vllm_api, case_name, topk, topp, temperatur
     
     outputs_dict = {
                             'pid': question['question_id'],
-                            'type': 'short_cot',
                             'question': question,
                             'full_answer': full_answers,
                             'extraction': extract_answers,
@@ -444,14 +442,16 @@ def generate_answer(question, port, vllm_api, case_name, topk, topp, temperature
                 }],
                 extra_body= {
                     "add_generation_prompt": True,  # 控制prompt最后是否拼接<|Assistant|>
-                    "chat_template_kwargs": {"enable_thinking": False},  # 控制长短思维
+                    "chat_template_kwargs": {"enable_thinking": True},  # 控制长短思维
                     "include_stop_str_in_output": True,
                     "skip_special_tokens": False
                 },
 
+                #max_completion_tokens=max_tokens,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=topp,
+                #stop='<eod>',
             )
             break
         except Exception as e:
@@ -479,6 +479,7 @@ def generate_answer(question, port, vllm_api, case_name, topk, topp, temperature
     
     outputs_dict = {
                             'pid': question['question_id'],
+                            'type': 'long_cot',
                             'question': question,
                             'extraction': extract_answers,
                             'response': response.choices[0].message.content,
@@ -564,7 +565,7 @@ if __name__ == '__main__':
         out_dir = args.output_dir
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        result_file = case_name + '-' + str(batch_num) + '-' + args.dataset + '-' + time_prefix + '_short_chat.json'
+        result_file = case_name + '-' + str(batch_num) + '-' + args.dataset + '-' + time_prefix + '_' + str(topk) + '_' + str(topp) + '_long_chat.json'
         result_file_multi = case_name + '-' + str(batch_num) + '-' + args.dataset + '-' + time_prefix + '_multi.json'
         output_path = os.path.join(out_dir, result_file)
         print(output_path)
@@ -620,4 +621,4 @@ if __name__ == '__main__':
         with open(exec_file_name, 'a', encoding='utf-8') as f_out:
             f_out.write(cmd + '\n')
 
-            
+

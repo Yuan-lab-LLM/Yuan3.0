@@ -179,4 +179,3 @@ Taking the AIME2024 task as an example, the evaluation script is as follows:
 python script/judge_gsm_choice_easy.py --input_path result/aime-2024/2024_II_cle_001.txt --output_path test_out/ --origin_path eval/datasets/aime-2024/AIME_2024_I_cle.txt
 ```
 
-

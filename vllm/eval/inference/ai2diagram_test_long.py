@@ -207,7 +207,6 @@ def get_dataset(test_path, prompt, dataset):
         prompt_pre = "Your task is to answer the question and give step by step reasoning before you answer, and when you're ready to answer, please use the format \"Final answer: ..\" and put the final answer in a latex box \"\\boxed{}\"\n\nQuestion:"
         image, question, pid, annotation = data['image'], data['question'], data['question_id'], data['answer']
         question = question.replace('Answer with the option\'s letter from the given choices directly.','')
-
         if question == '':
             question = question
         else:
@@ -225,7 +224,7 @@ def get_dataset(test_path, prompt, dataset):
         idata_dict = {
             #'question': COT_INSTRUCTION.format(question_text=question),
             #'question': prompt_math + question,
-            'question': prompt_pre + question,
+            'question': question,
             #'question': '<|begin_of_sentence|><|User|>' + prompt_pre + question,
             'question_id': idx,
             'annotation': annotation,
@@ -383,7 +382,7 @@ def generate_answer(question, port, vllm_api, case_name, topk, topp, temperature
                 }],
                 extra_body= {
                     "add_generation_prompt": True,  # 控制prompt最后是否拼接<|Assistant|>
-                    "chat_template_kwargs": {"enable_thinking": False},  # 控制长短思维
+                    "chat_template_kwargs": {"enable_thinking": True},  # 控制长短思维
                     "include_stop_str_in_output": True,
                     "skip_special_tokens": False
                 },
@@ -428,7 +427,7 @@ def generate_answer(question, port, vllm_api, case_name, topk, topp, temperature
     
     outputs_dict = {
                             'pid': question['question_id'],
-                            'type': 'short_cot',
+                            'type': 'long_cot',
                             'question': question,
                             'extraction': extract_answers,
                             'response': response.choices[0].message.content,
@@ -461,7 +460,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=str, default="", help="")
     # ai2diagram_test 
-    parser.add_argument("--dataset", type=str, default=['chartqa_test_human'], help="")
+    parser.add_argument("--dataset", type=str, default=['ai2diagram_test'], help="")
     #parser.add_argument("--dataset", type=str, default='docvqa_val', help="")
     parser.add_argument("--output_dir", type=str, default="", help="")
     parser.add_argument("--output", type=str, default="", help="")
@@ -515,7 +514,7 @@ if __name__ == '__main__':
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
             result_file = case_name + '-' + str(batch_num) + '-' + dataset + '-' + time_prefix + '.json'
-            result_file_multi = case_name + '-' + str(batch_num) + '-' + dataset + '-' + time_prefix + '_short_chat.json'
+            result_file_multi = case_name + '-' + str(batch_num) + '-' + dataset + '-' + time_prefix + '_long_chat.json'
             output_path = os.path.join(out_dir, result_file)
             print(output_path)
             output_path_multi = os.path.join(out_dir, result_file_multi)
