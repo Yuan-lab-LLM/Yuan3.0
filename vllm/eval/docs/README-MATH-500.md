@@ -1,33 +1,126 @@
 # MATH-500 Evaluation Operation Guide
-## 一、Environment Configuration
-### 1. The vllm module needs to be installed
-### 2. Requires CUDA environment and two GPU cards
 
-## 二、Input Data Processing
-### 1.If the input data file is a single file, this step can be ignored; if there are multiple files, use the `cat` command to combine all input files into one file, which can be placed in the same directory. Note that the file names must not be duplicate。
-### cat command demonstration：
+## 1. Environment Configuration
+
+<table>
+  <tbody>
+    <tr>
+      <td>Required Dependencies</td>
+      <td>
+        <ul>
+          <li>The <code>vllm</code> Python module must be installed.</li>
+          <li>A CUDA-enabled environment with <strong>two GPU cards</strong> is required.</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+## 2. Input Data Processing
+
+### Step 1: Combine Input Files (if necessary)
+
+- If your input data consists of **a single file**, skip this step.
+- If you have **multiple input files**, combine them into one using the `cat` command. Ensure filenames do not conflict.
+
+**Example:**
 ```bash
 cat result/MATH-500/HuggingFaceH4_MATH-500_standard* > result/MATH-500_all/HuggingFaceH4_MATH-500_standard_all.txt
 ```
 
-## 三、Evaluate Script Execution
-### 1. Establish an evaluation result path, for example:eval/eval_output/MATH-500。
-### 2. Modify the scoring model path in the judge_with_vllm_model_math.py file, changing the path to the desired scoring model path.
-### 3.Switch the current path to the directory path of the judge_with_vllm_model_math.py file, which is eval/scripts/MATH-500/, and execute it using the following command:
+---
+
+## 3. Run Evaluation Script
+
+### Step 1: Create Output Directory  
+Create a directory to store evaluation results, for example:
 ```bash
-GPU_NUMS=2 MAX_TOKENS=4096 BATCH_SIZE=480 PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python VLLM_WORKER_MULTIPROC_METHOD=spawn CUDA_VISIBLE_DEVICES=0,1 python judge_with_vllm_model_math.py --input_path result/MATH-500_all/ --output_path eval/eval_output/MATH-500 --origin_path eval/datasets/MATH-500/HuggingFaceH4_MATH-500_standard_001.txt
+mkdir -p eval/eval_output/MATH-500
 ```
+
+### Step 2: Configure Scoring Model Path  
+Open `eval/scripts/MATH-500/judge_with_vllm_model_math.py` and update the scoring model path to your desired model location.
+
+### Step 3: Execute the Evaluation Script  
+Navigate to the script’s directory and run the following command:
+
 ```bash
-Parameter interpretation：
-GPU_NUMS=2: This environment variable specifies that the number of GPUs used is 2.
-MAX_TOKENS=4096: This parameter specifies the maximum number of tokens for model processing, which is 4096.
-PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python: This environment variable specifies the use of the Python implementation of Protocol Buffers.
-VLLM_WORKER_MULTIPROC_METHOD=spawn: This environment variable sets the multiprocessing method for VLLM to spawn.
-CUDA_VISIBLE_DEVICES=0,1: In this environment variable, GPUs with IDs 0 and 1 will be used, which can be customized and adjusted.
-python judge_with_vllm_model_math.py: This is the name of the Python script to be executed.
---input_path: Directory path of the input file.
---output_path: Directory path for output files.
---origin_path: The absolute path of the original data.
+cd eval/scripts/MATH-500/
+
+GPU_NUMS=2 \
+MAX_TOKENS=4096 \
+BATCH_SIZE=480 \
+PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python \
+VLLM_WORKER_MULTIPROC_METHOD=spawn \
+CUDA_VISIBLE_DEVICES=0,1 \
+python judge_with_vllm_model_math.py \
+  --input_path result/MATH-500_all/ \
+  --output_path eval/eval_output/MATH-500 \
+  --origin_path eval/datasets/MATH-500/HuggingFaceH4_MATH-500_standard_001.txt
 ```
-## 四、View Evaluation Results
-### Look at the parameter "accuracy" in the screen print result. For example, if "accuracy" is 96.6667%, then the typing result is 96.6667%.
+
+### Parameter Reference
+
+<table>
+  <thead>
+    <tr>
+      <th>Parameter / Env Var</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>GPU_NUMS=2</code></td>
+      <td>Number of GPUs to use for evaluation.</td>
+    </tr>
+    <tr>
+      <td><code>MAX_TOKENS=4096</code></td>
+      <td>Maximum number of tokens allowed per model inference.</td>
+    </tr>
+    <tr>
+      <td><code>BATCH_SIZE=480</code></td>
+      <td>Batch size for processing inputs.</td>
+    </tr>
+    <tr>
+      <td><code>PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python</code></td>
+      <td>Forces use of the pure-Python Protobuf implementation (avoids C++ extension issues).</td>
+    </tr>
+    <tr>
+      <td><code>VLLM_WORKER_MULTIPROC_METHOD=spawn</code></td>
+      <td>Sets multiprocessing start method for vLLM workers.</td>
+    </tr>
+    <tr>
+      <td><code>CUDA_VISIBLE_DEVICES=0,1</code></td>
+      <td>Specifies which GPU devices to use (adjust as needed).</td>
+    </tr>
+    <tr>
+      <td><code>--input_path</code></td>
+      <td>Directory containing your combined prediction files.</td>
+    </tr>
+    <tr>
+      <td><code>--output_path</code></td>
+      <td>Directory where evaluation results will be saved.</td>
+    </tr>
+    <tr>
+      <td><code>--origin_path</code></td>
+      <td>Absolute path to the original ground-truth file:<br><code>eval/datasets/MATH-500/HuggingFaceH4_MATH-500_standard_001.txt</code></td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+## 4. View Evaluation Results
+
+After execution completes, the script will print evaluation metrics directly to the terminal.
+
+Look for the **`accuracy`** value in the output. For example:
+```text
+accuracy: 96.6667%
+```
+
+The numeric value (e.g., `96.6667`) is your final MATH-500 evaluation score.
+
+---

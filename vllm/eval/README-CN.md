@@ -6,6 +6,7 @@
     <th style="border: 1px solid white; padding: 8px;">数据路径</th>
     <th style="border: 1px solid white; padding: 8px;">推理脚本</th>
     <th style="border: 1px solid white; padding: 8px;">评测脚本</th>
+    <th style="border: 1px solid white; padding: 8px;">评估指南</th>
   </tr>
   
   <!-- ChatRAG -->
@@ -15,6 +16,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/ChatRAG</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/openai_api3_eval.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/ChatRAG/eval_chatqa.sh</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-ChatRAG.md</td>
   </tr>
   
   <!-- MMTab -->
@@ -24,6 +26,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/MMTab</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/yuanvl_api_multi_eval.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/MMTab/table.sh</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-MMTAB.md</td>
   </tr>
   
   <!-- SummEval -->
@@ -33,6 +36,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/SummEval</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/openai_api3_table.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/Summary/*.py</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-SummEval.md</td>
   </tr>
   
   <!-- BFCL -->
@@ -46,6 +50,7 @@
     </td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/generate.sh</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/BFCL/score.sh</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-BFCL.md</td>
   </tr>
   
   <!-- MATH-500 -->
@@ -55,6 +60,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/MATH-500</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/openai_api3_eval.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/MATH-500/judge_with_vllm_model_math.py</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-MATH-500.md</td>
   </tr>
   
   <!-- AIME2024 -->
@@ -64,6 +70,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/AIME2024</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/openai_api3_eval.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/AIME2024/eval_easy_lzy.sh</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-AIME2024.md</td>
   </tr>
   
   <!-- livecodebench -->
@@ -73,6 +80,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/livecodebench</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/openai_api3_livecode.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/livecodebench/eval_livecodebench_v6.sh</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-livecodebench.md</td>
   </tr>
   
   <!-- HumanEval -->
@@ -82,6 +90,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/HumanEval</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/openai_api3_eval.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/HumanEval/score_humaneval_ly.sh</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-HumanEval.md</td>
   </tr>
   
   <!-- MMLU -->
@@ -91,6 +100,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/MMLU</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/openai_api3_eval.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/MMLU/eval_easy_lzy.sh</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-MMLU.md</td>
   </tr>
   
   <!-- MMLU Pro -->
@@ -100,6 +110,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/MMLU-Pro</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/openai_api3_eval.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/MMLU-Pro/eval_easy_lzy.sh</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-MMLU-Pro.md</td>
   </tr>
   
   <!-- GPQA-Diamond -->
@@ -109,6 +120,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/GPQA-Diamond</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/openai_api3_eval.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/GPQA-Diamond/eval_easy_lzy.sh</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-GPQA-Diamond.md</td>
   </tr>
   
   <!-- ChartQA -->
@@ -121,6 +133,7 @@
       eval/inference/chartqa_test_human.py
     </td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/ChartQA/score_analyze_all.py</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-ChartQA.md</td>
   </tr>
   
   <!-- DocVQA -->
@@ -133,6 +146,7 @@
       eval/inference/chat_docvqa_oneword_chat.py
     </td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/DocVQA/score_analyze_all.py</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-DocVQA.md</td>
   </tr>
   
   <!-- AI2D -->
@@ -142,6 +156,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/AI2D</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/ai2diagram_test.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/AI2D/score_analyze_all.py</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-AI2D.md</td>
   </tr>
   
   <!-- MathVista -->
@@ -151,6 +166,7 @@
     <td style="border: 1px solid white; padding: 8px;">eval/datasets/MathVista</td>
     <td style="border: 1px solid white; padding: 8px;">eval/inference/yuanvl_eval_mathvista.py</td>
     <td style="border: 1px solid white; padding: 8px;">eval/scripts/MathVista/calculate_score_detailed_nokey.py</td>
+    <td style="border: 1px solid white; padding: 8px;">eval/docs/README-MathVista.md</td>
   </tr>
 </table>
 
