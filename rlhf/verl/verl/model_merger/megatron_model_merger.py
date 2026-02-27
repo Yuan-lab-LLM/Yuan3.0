@@ -498,7 +498,8 @@ class MegatronModelMerger(BaseModelMerger):
             sd_to_save = {k: merged_state_dict[k] for k in keys}
             if self.rank == 0 and i == 0:
                 sd_to_save = {**new_state_dict, **sd_to_save}
-            numel += sum([sd_to_save[i].numel() for i in sd_to_save])
+            # numel += sum([sd_to_save[i].numel() for i in sd_to_save])
+            numel += sum(sd_to_save[k].numel() for k in sd_to_save if 'vision_model' not in k)
             save_idx = layer_start * saves_per_layer + i
             save_path = target_dir / f"model-{save_idx + 1:05d}-of-{saves_total:05d}.safetensors"
 
@@ -521,7 +522,8 @@ class MegatronModelMerger(BaseModelMerger):
                 json.dump(
                     {
                         "metadata": {
-                            "total_size": numel,
+                            "total_parameters": numel,
+                            "total_size": int(2*numel),
                         },
                         "weight_map": saves_indexes,
                     },
