@@ -12,7 +12,7 @@ import torch.distributed
 import torch.nn as nn
 
 import vllm.envs as envs
-from vllm.config import VllmConfig
+from vllm.config import VllmConfig, CUDAGraphMode
 from vllm.distributed import (ensure_model_parallel_initialized,
                               init_distributed_environment,
                               set_custom_all_reduce)
@@ -488,7 +488,7 @@ class Worker(WorkerBase):
                     sort_by="self_cuda_time_total"))
 
     def execute_dummy_batch(self) -> None:
-        self.model_runner._dummy_run(1, uniform_decode=True)
+        self.model_runner._dummy_run(1, uniform_decode=True, cudagraph_runtime_mode=CUDAGraphMode.NONE)
 
     def add_lora(self, lora_request: LoRARequest) -> bool:
         return self.model_runner.add_lora(lora_request)

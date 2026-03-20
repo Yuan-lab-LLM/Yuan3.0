@@ -1018,6 +1018,11 @@ class ModelConfig:
         num_experts = 0
         for name in num_expert_names:
             num_experts = getattr(self.hf_text_config, name, 0)
+            if getattr(self.hf_text_config, "moe_config", False):
+                if "moe_num_experts" in self.hf_text_config.moe_config:
+                    num_experts = self.hf_text_config.moe_config["moe_num_experts"]
+                if "per_layer_experts_blocks" in self.hf_text_config.moe_config:
+                    num_experts = self.hf_text_config.moe_config["per_layer_experts_blocks"][0]
             if num_experts > 0:
                 break
         if num_experts < 1:
@@ -1055,11 +1060,11 @@ class ModelConfig:
         total_num_attention_heads = getattr(self.hf_text_config,
                                             "num_attention_heads", 0)
         tensor_parallel_size = parallel_config.tensor_parallel_size
-        if total_num_attention_heads % tensor_parallel_size != 0:
-            raise ValueError(
-                f"Total number of attention heads ({total_num_attention_heads})"
-                " must be divisible by tensor parallel size "
-                f"({tensor_parallel_size}).")
+        # if total_num_attention_heads % tensor_parallel_size != 0:
+        #     raise ValueError(
+        #         f"Total number of attention heads ({total_num_attention_heads})"
+        #         " must be divisible by tensor parallel size "
+        #         f"({tensor_parallel_size}).")
 
         if parallel_config.enable_expert_parallel:
             self._verify_with_expert_parallelism()

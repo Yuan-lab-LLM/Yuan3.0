@@ -8,6 +8,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import msgspec
+import torch
 
 import vllm.platforms
 from vllm.config import ParallelConfig
@@ -134,19 +135,14 @@ try:
                 scheduler_output, intermediate_tensors = scheduler_output
             else:
                 scheduler_output, intermediate_tensors = scheduler_output, None
+
             output = self.worker.model_runner.execute_model(
                 scheduler_output, intermediate_tensors)
             if isinstance(output, IntermediateTensors):
-                if len(scheduler_output.scheduled_new_reqs) > 0:
-                    scheduler_output_t = copy.deepcopy(scheduler_output)
-                    for scheduled_new_req in scheduler_output_t.scheduled_new_reqs:
-                        for mm_input in scheduled_new_req.mm_inputs:
-                            mm_input.pop('pixel_values_flat', None)
-                            mm_input.pop('pixel_values', None)
-                        scheduled_new_req.mm_hashes = []
-                        scheduled_new_req.mm_positions = []
-                else:
-                    scheduler_output_t = scheduler_output
+                scheduler_output_t = copy.deepcopy(scheduler_output)
+                for scheduled_new_req in scheduler_output_t.scheduled_new_reqs:
+                    scheduled_new_req.prompt_token_ids= []
+                    scheduled_new_req.mm_features = []
                 output = scheduler_output_t, output
             elif not get_pp_group().is_last_rank:
                 # Case where there are no scheduled requests

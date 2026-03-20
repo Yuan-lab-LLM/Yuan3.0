@@ -795,7 +795,7 @@ class YuanVLChatModel(nn.Module, SupportsMultiModal, SupportsPP):
             num_hidden_layers = vision_feature_layer + 1
 
         # 创建语言模型部分
-        self.language_model = YuanForCausalLM(vllm_config=vllm_config, prefix=prefix)
+        self.language_model = YuanForCausalLM(vllm_config=vllm_config, prefix="language_model")
 
         self.vision_model = InternVisionModel(config.vision_config,
                                               quant_config=quant_config,

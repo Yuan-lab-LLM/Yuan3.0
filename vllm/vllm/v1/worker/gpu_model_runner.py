@@ -1822,8 +1822,11 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 is_scattered = k == "residual" and is_rs
                 copy_len = num_tokens // tp if is_scattered else \
                     num_tokens
-                self.intermediate_tensors[k][:copy_len].copy_(
-                    v[:copy_len], non_blocking=True)
+                try:
+                    self.intermediate_tensors[k][:copy_len].copy_(
+                        v[:copy_len], non_blocking=True)
+                except:
+                    print(f"is_scattered: {is_scattered}, is_rs:{is_rs}, intermediate_tensors shape not correct!!!!", flush=True)
 
         return IntermediateTensors({
             k:
@@ -1843,13 +1846,24 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         assert self.eplb_state is not None
         model = self.get_model()
-        assert is_mixture_of_experts(model)
-        self.eplb_state.step(
-            model,
-            is_dummy,
-            is_profile,
-            log_stats=self.parallel_config.eplb_config.log_balancedness,
-        )
+        # assert is_mixture_of_experts(model)
+        if is_mixture_of_experts(model):
+            self.eplb_state.step(
+                model,
+                is_dummy,
+                is_profile,
+                log_stats=self.parallel_config.eplb_config.log_balancedness,
+            )
+        elif getattr(self.model, "language_model", None) and \
+                is_mixture_of_experts(self.model.language_model): 
+            self.eplb_state.step(
+                model.language_model,
+                is_dummy,
+                is_profile,
+                log_stats=self.parallel_config.eplb_config.log_balancedness,
+            )
+        else:
+            assert is_mixture_of_experts(model)
 
     def get_dp_padding(self,
                        num_tokens: int) -> tuple[int, Optional[torch.Tensor]]:
@@ -2715,6 +2729,20 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 rank_mapping,
             )
 
+        if getattr(self.model, "language_model", None) and \
+                is_mixture_of_experts(self.model.language_model) and \
+                self.parallel_config.enable_eplb:
+            logger.info("EPLB is enabled for model %s.",
+                        self.model_config.model)
+            self.eplb_state = EplbState.build(
+                self.model.language_model,
+                self.device,
+                self.parallel_config,
+                global_expert_load,
+                old_global_expert_indices,
+                rank_mapping,
+            )
+
         if (
             self.vllm_config.compilation_config.level == \
                 CompilationLevel.DYNAMO_AS_IS and supports_dynamo()
@@ -3126,27 +3154,29 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         with self.maybe_dummy_run_with_lora(self.lora_config,
                                             num_scheduled_tokens, remove_lora):
-            model_kwargs = self._init_model_kwargs(num_tokens)
+            # Make sure padding doesn't exceed max_num_tokens
+            assert num_tokens_after_padding <= self.max_num_tokens
+            model_kwargs = self._init_model_kwargs(num_tokens_after_padding)
             if (self.supports_mm_inputs
                     and not self.model_config.is_encoder_decoder):
                 input_ids = None
-                inputs_embeds = self.inputs_embeds.gpu[:num_tokens]
+                inputs_embeds = self.inputs_embeds.gpu[:num_tokens_after_padding]
                 model_kwargs = {
                     **model_kwargs,
                     **self._dummy_mm_kwargs(num_reqs),
                 }
             elif self.enable_prompt_embeds:
                 input_ids = None
-                inputs_embeds = self.inputs_embeds.gpu[:num_tokens]
-                model_kwargs = self._init_model_kwargs(num_tokens)
+                inputs_embeds = self.inputs_embeds.gpu[:num_tokens_after_padding]
+                model_kwargs = self._init_model_kwargs(num_tokens_after_padding)
             else:
-                input_ids = self.input_ids.gpu[:num_tokens]
+                input_ids = self.input_ids.gpu[:num_tokens_after_padding]
                 inputs_embeds = None
 
             if self.uses_mrope:
-                positions = self.mrope_positions.gpu[:, :num_tokens]
+                positions = self.mrope_positions.gpu[:, :num_tokens_after_padding]
             else:
-                positions = self.positions.gpu[:num_tokens]
+                positions = self.positions.gpu[:num_tokens_after_padding]
 
             if get_pp_group().is_first_rank:
                 intermediate_tensors = None
@@ -3159,7 +3189,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                             device=self.device))
 
                 intermediate_tensors = self.sync_and_slice_intermediate_tensors(
-                    num_tokens, None, False)
+                    num_tokens_after_padding, None, False)
 
             # filter out the valid batch descriptor
             _cg_mode, batch_descriptor = self.cudagraph_dispatcher.dispatch(

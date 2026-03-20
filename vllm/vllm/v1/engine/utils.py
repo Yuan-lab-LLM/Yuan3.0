@@ -344,6 +344,7 @@ class CoreEngineActorManager:
             available_engine_count = int(
                 node_resources[device_str]) // world_size
             if dp_master_ip_key in node_resources:
+                print("available_engine_count: ", available_engine_count, node_resources[device_str], world_size, "local_engine_count: ", local_engine_count, flush=True)
                 assert available_engine_count >= local_engine_count, (
                     "Not enough resources to allocate DP ranks "
                     f"on DP master node {dp_master_ip}")

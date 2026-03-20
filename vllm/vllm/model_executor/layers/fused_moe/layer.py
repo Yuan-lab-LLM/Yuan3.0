@@ -553,7 +553,6 @@ class UnquantizedFusedMoEMethod(FusedMoEMethodBase, CustomOp):
 
         zero_expert_num = getattr(layer, 'zero_expert_num', 0)
         zero_expert_type = getattr(layer, 'zero_expert_type', None)
-
         topk_weights, topk_ids, zero_expert_result = FusedMoE.select_experts(
             hidden_states=x,
             router_logits=router_logits,
@@ -1110,8 +1109,9 @@ class FusedMoE(CustomOp):
         if self.enable_eplb:
             from vllm.model_executor.layers.quantization.fp8 import (
                 Fp8MoEMethod)
+            from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors_moe import CompressedTensorsWNA16MarlinMoEMethod
             if not isinstance(quant_method,
-                              (Fp8MoEMethod, UnquantizedFusedMoEMethod)):
+                              (Fp8MoEMethod, CompressedTensorsWNA16MarlinMoEMethod, UnquantizedFusedMoEMethod)):
                 # TODO: Add support for additional quantization methods.
                 # The implementation for other quantization methods does not
                 # contain essential differences, but the current quant API
@@ -2095,6 +2095,7 @@ class FusedMoE(CustomOp):
         # - `expert_id` is the physical expert id
         # - `weight_name` contains the weight name of the logical expert
         # So that we should map the expert id to logical in `weight_name`
+
         physical_to_logical_map = \
             EplbState.build_initial_global_physical_to_logical_map(
             num_experts, num_redundant_experts)

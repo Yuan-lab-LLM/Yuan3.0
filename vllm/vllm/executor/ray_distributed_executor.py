@@ -626,7 +626,7 @@ class RayDistributedExecutor(DistributedExecutorBase):
                         "Ray Compiled Graph communication.")
 
         return forward_dag.experimental_compile(
-            _max_inflight_executions=12,
+            _max_inflight_executions=30,
             enable_asyncio=enable_asyncio,
             _overlap_gpu_communication=envs.
             VLLM_USE_RAY_COMPILED_DAG_OVERLAP_COMM)

@@ -1,0 +1,142 @@
+{% for message in messages if message.role == 'user' and message.content is iterable and message.content is not string %}
+    {% for item in message.content if item.type == 'image' %}
+        {{- '<image>' -}}
+    {% endfor %}
+{% endfor %}
+
+{{- '<|begin_of_sentence|>' -}}
+
+{%- set system_message = namespace(value=none) -%}
+{%- set has_tools = namespace(value=false) -%}
+
+{%- if tools is defined and tools and tools|length > 0 -%}
+    {%- set has_tools.value = true -%}
+{%- endif -%}
+
+{%- for message in messages if message.role == 'system' -%}
+    {%- set system_message.value = message.content -%}
+{%- endfor -%}
+
+{%- if system_message.value or has_tools.value -%}
+    {%- if has_tools.value -%}
+        {%- if system_message.value -%}
+            {{- '\n\n' -}}
+        {%- endif -%}
+        {{- '# Tools\n\nYou have access to the following functions. To call functions, please respond with a python list of the calls. ' -}}
+        {{- 'Respond in the format [func_name1(params_name1="string_value", params_name2=123...), func_name2(params)] ' -}}
+        {{- "String parameters MUST be wrapped in double quotes. Do not use variables.\n\n" }}
+        {%- for tool in tools -%}
+            {{- tool | tojson -}}
+            {{- '\n\n' -}}
+        {%- endfor -%}
+    {%- endif -%}
+    {%- if system_message.value -%}
+        {{- system_message.value -}}
+    {%- endif -%}
+{%- endif -%}
+
+{#- 计算最后一个非工具响应的用户查询索引（用于多轮工具调用判断）-#}
+{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) -%}
+{%- for message in messages[::-1] -%}
+    {%- set index = (messages|length - 1) - loop.index0 -%}
+    {%- if ns.multi_step_tool and message.role == "user" and not(message.content is string and (message.content.startswith('tool_response') or message.content.startswith('<tool_response>'))) -%}
+        {%- set ns.multi_step_tool = false -%}
+        {%- set ns.last_query_index = index -%}
+    {%- endif -%}
+{%- endfor -%}
+
+
+{%- for message in messages -%}
+    {%- if message.role == "user" -%}
+        {{- '<|User|>' -}}
+        {%- if message.content is string -%}
+            {{- message.content -}}
+        {%- elif message.content is iterable and message.content is not string -%}
+            {%- for item in message.content if item.type == "text" -%}
+                {{- item.text -}}
+            {%- endfor -%}
+        {%- endif -%}
+
+    {%- elif message.role == "assistant" -%}
+        {#- 提取 reasoning_content -#}
+        {%- set content = message.content -%}
+        {%- set reasoning_content = '' -%}
+        {%- if message.reasoning_content is defined and message.reasoning_content is not none -%}
+            {%- set reasoning_content = message.reasoning_content -%}
+        {%- else -%}
+            {%- if content is string and '</think>' in content -%}
+                {%- set content = content.split('</think>')[-1].lstrip('\n') -%}
+                {%- set reasoning_content = content.split('</think>')[0].rstrip('\n').split('<think>')[-1].lstrip('\n') -%}
+            {%- endif -%}
+        {%- endif -%}
+
+        {#- 判断是否输出 think 块：只有在多轮工具调用的最终回答，且是最后一轮或有 reasoning_content -#}
+        {%- set show_think = false -%}
+        {%- if loop.index0 > ns.last_query_index -%}
+            {%- if loop.last or (not loop.last and reasoning_content) -%}
+                {%- set show_think = true -%}
+            {%- endif -%}
+        {%- endif -%}
+
+        {{- '<|Assistant|>' -}}
+
+        {%- if show_think and reasoning_content -%}
+            {#- 最终回答，输出完整的 think 块 -#}
+            {{- '<think>\n' + reasoning_content.strip('\n') + '\n</think>\n\n' -}}
+        {%- elif enable_thinking is defined and not enable_thinking -%}
+            {#- enable_thinking=false：输出空 think 标签 -#}
+            {{- '</think>' -}}
+        {%- endif -%}
+
+        {%- if content is string -%}
+            {{- content -}}
+        {%- elif content is iterable and content is not string -%}
+            {%- for item in content if item.type == "text" -%}
+                {{- item.text -}}
+            {%- endfor -%}
+        {%- endif -%}
+
+        {%- if message.tool_calls is defined and message.tool_calls -%}
+            {{- '[' -}}
+            {%- for tool_call in message.tool_calls -%}
+                {%- if tool_call.function is defined -%}
+                    {%- set tool_call_func = tool_call.function -%}
+                {%- else -%}
+                    {%- set tool_call_func = tool_call -%}
+                {%- endif -%}
+                {{- tool_call_func.name + '(' -}}
+                {%- for param in tool_call_func.arguments -%}
+                    {{- param + '=' -}}
+                    {%- if tool_call_func.arguments[param] is string -%}
+                        {{- '"' + tool_call_func.arguments[param] + '"' -}}
+                    {%- else -%}
+                        {{- tool_call_func.arguments[param] | tojson -}}
+                    {%- endif -%}
+                    {%- if not loop.last -%}, {% endif -%}
+                {%- endfor -%}
+                {{- ')' -}}
+                {%- if not loop.last -%}, {% endif -%}
+            {%- endfor -%}
+            {{- ']' -}}
+            {{- '<|end_of_sentence|>' -}}
+        {%- endif -%}
+
+
+    {%- elif message.role == "tool" -%}
+        {%- if loop.first or (messages[loop.index0 - 1].role != "tool") -%}
+            {{- '<|User|>tool_response\n' -}}
+        {%- endif -%}
+        {%- if message.content is mapping -%}
+            {{- message.content | tojson -}}
+        {%- else -%}
+            {{- '{ "output": ' + (message.content | tojson) + ' }\n' -}}
+        {%- endif -%}
+    {%- endif -%}
+{%- endfor -%}
+
+{%- if add_generation_prompt -%}
+    {{- '<|Assistant|>' -}}
+    {%- if enable_thinking is defined -%}
+        {{- "</think>" if not enable_thinking else "<think>" -}}
+    {%- endif -%}
+{%- endif -%}

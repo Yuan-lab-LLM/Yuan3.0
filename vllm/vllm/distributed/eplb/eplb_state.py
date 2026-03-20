@@ -190,54 +190,107 @@ class EplbState:
         """
         Build the initial EPLB state.
         """
-        physical_to_logical_map_list = (
-            cls.build_initial_global_physical_to_logical_map(
-                model.num_routed_experts,
-                model.num_redundant_experts,
-            ))
-        physical_to_logical_map = torch.tensor(
-            physical_to_logical_map_list,
-            device=device,
-        )
-        # Assuming 8 GPUs per node, this supports up to
-        # (1023 + 1) / 8 = 128 nodes for now.
-        # TODO(rui): make this configurable
-        MAX_EXPERT_REDUNDANCY = 1023
-        assert model.num_redundant_experts <= MAX_EXPERT_REDUNDANCY, (
-            f"num_redundant_experts {model.num_redundant_experts} "
-            f"must be less than or equal to {MAX_EXPERT_REDUNDANCY}")
-        max_slots_per_logical_expert = MAX_EXPERT_REDUNDANCY + 1
-        logical_to_physical_map = torch.full(
-            (model.num_logical_experts, max_slots_per_logical_expert),
-            -1,
-            device=device,
-        )
-        logical_replica_count = torch.zeros(
-            (model.num_logical_experts, ),
-            device=device,
-            dtype=torch.long,
-        )
+        if hasattr(model, "num_routed_experts_list") and len(model.num_routed_experts_list) > 0:
+            physical_to_logical_map_list_total = []
+            logical_to_physical_map_total = []
+            logical_replica_count_total = []
+            for num_experts in model.num_routed_experts_list:
+                physical_to_logical_map_list = \
+                    cls.build_initial_global_physical_to_logical_map(
+                        num_experts,
+                        model.num_routed_experts - num_experts + model.num_redundant_experts,
+                    )
+                physical_to_logical_map_list_total.append(physical_to_logical_map_list)
+                
+                # Assuming 8 GPUs per node, this supports up to
+                # (1023 + 1) / 8 = 128 nodes for now.
+                # TODO(rui): make this configurable
+                MAX_EXPERT_REDUNDANCY = 1023
+                assert model.num_redundant_experts <= MAX_EXPERT_REDUNDANCY, (
+                    f"num_redundant_experts {model.num_redundant_experts} "
+                    f"must be less than or equal to {MAX_EXPERT_REDUNDANCY}")
+                max_slots_per_logical_expert = MAX_EXPERT_REDUNDANCY + 1
+                logical_to_physical_map = torch.full(
+                    (model.num_logical_experts, max_slots_per_logical_expert),
+                    -1,
+                    device=device,
+                )
+                logical_replica_count = torch.zeros(
+                    (model.num_logical_experts, ),
+                    device=device,
+                    dtype=torch.long,
+                )
 
-        for i in range(model.num_physical_experts):
-            logical_idx = physical_to_logical_map[i]
-            logical_to_physical_map[logical_idx,
-                                    logical_replica_count[logical_idx]] = i
-            logical_replica_count[logical_idx] += 1
+                for i in range(model.num_physical_experts):
+                    logical_idx = physical_to_logical_map_list[i]
+                    logical_to_physical_map[logical_idx,
+                                            logical_replica_count[logical_idx]] = i
+                    logical_replica_count[logical_idx] += 1
 
-        # Duplicate initial mapping for all layers
-        physical_to_logical_map = physical_to_logical_map.unsqueeze(0).expand(
-            model.num_moe_layers,
-            -1,
-        ).contiguous()
-        logical_to_physical_map = logical_to_physical_map.unsqueeze(0).expand(
-            model.num_moe_layers,
-            -1,
-            -1,
-        ).contiguous()
-        logical_replica_count = logical_replica_count.unsqueeze(0).expand(
-            model.num_moe_layers,
-            -1,
-        ).contiguous()
+                logical_to_physical_map_total.append(logical_to_physical_map)
+                logical_replica_count_total.append(logical_replica_count)
+
+            physical_to_logical_map = torch.tensor(
+                physical_to_logical_map_list_total,
+                device=device,
+            )
+            logical_to_physical_map = torch.stack(
+                logical_to_physical_map_total,
+                dim=0,
+            )
+            logical_replica_count = torch.stack(
+                logical_replica_count_total,
+                dim=0,
+            )
+        else:
+            physical_to_logical_map_list = (
+                cls.build_initial_global_physical_to_logical_map(
+                    model.num_routed_experts,
+                    model.num_redundant_experts,
+                ))
+            physical_to_logical_map = torch.tensor(
+                physical_to_logical_map_list,
+                device=device,
+            )
+            # Assuming 8 GPUs per node, this supports up to
+            # (1023 + 1) / 8 = 128 nodes for now.
+            # TODO(rui): make this configurable
+            MAX_EXPERT_REDUNDANCY = 1023
+            assert model.num_redundant_experts <= MAX_EXPERT_REDUNDANCY, (
+                f"num_redundant_experts {model.num_redundant_experts} "
+                f"must be less than or equal to {MAX_EXPERT_REDUNDANCY}")
+            max_slots_per_logical_expert = MAX_EXPERT_REDUNDANCY + 1
+            logical_to_physical_map = torch.full(
+                (model.num_logical_experts, max_slots_per_logical_expert),
+                -1,
+                device=device,
+            )
+            logical_replica_count = torch.zeros(
+                (model.num_logical_experts, ),
+                device=device,
+                dtype=torch.long,
+            )
+
+            for i in range(model.num_physical_experts):
+                logical_idx = physical_to_logical_map[i]
+                logical_to_physical_map[logical_idx,
+                                        logical_replica_count[logical_idx]] = i
+                logical_replica_count[logical_idx] += 1
+
+            # Duplicate initial mapping for all layers
+            physical_to_logical_map = physical_to_logical_map.unsqueeze(0).expand(
+                model.num_moe_layers,
+                -1,
+            ).contiguous()
+            logical_to_physical_map = logical_to_physical_map.unsqueeze(0).expand(
+                model.num_moe_layers,
+                -1,
+                -1,
+            ).contiguous()
+            logical_replica_count = logical_replica_count.unsqueeze(0).expand(
+                model.num_moe_layers,
+                -1,
+            ).contiguous()
 
         expert_load_pass = torch.zeros(
             (model.num_moe_layers, model.num_physical_experts),
@@ -275,18 +328,37 @@ class EplbState:
                     "not using hierarchical rearrangement algorithm.\n"
                     f"{num_gpus=}, {num_nodes=}")
 
-            # Get new expert mappings
-            (
-                new_physical_to_logical_map,
-                new_logical_to_physical_map,
-                new_logical_replica_count,
-            ) = (rebalance_experts(
-                global_expert_load,
-                num_replicas,
-                num_groups,
-                num_nodes,
-                num_gpus,
-            ))
+            if hasattr(model, "num_routed_experts_list") and len(model.num_routed_experts_list) > 0:
+                new_physical_to_logical_map = physical_to_logical_map.to("cpu")
+                new_logical_to_physical_map = logical_to_physical_map.to("cpu")
+                new_logical_replica_count = logical_replica_count.to("cpu")
+                for i, num_experts in enumerate(model.num_routed_experts_list):
+                    # if num_replicas == num_experts:
+                    #     continue
+                    phy_to_log_map, log_to_phy_map, log_replica_count = \
+                        rebalance_experts(
+                                global_expert_load_window[i:i+1,:num_experts],
+                                num_replicas,
+                                num_groups,
+                                num_nodes,
+                                num_gpus
+                    )
+                    new_physical_to_logical_map[i:i+1].copy_(phy_to_log_map)
+                    new_logical_to_physical_map[i:i+1, :num_experts, :log_to_phy_map.shape[-1]].copy_(log_to_phy_map)
+                    new_logical_replica_count[i:i+1, :num_experts].copy_(log_replica_count)
+            else:
+                # Get new expert mappings
+                (
+                    new_physical_to_logical_map,
+                    new_logical_to_physical_map,
+                    new_logical_replica_count,
+                ) = (rebalance_experts(
+                    global_expert_load,
+                    num_replicas,
+                    num_groups,
+                    num_nodes,
+                    num_gpus,
+                ))
 
             max_physical_slots = new_logical_to_physical_map.shape[-1]
             assert max_physical_slots <= logical_to_physical_map.shape[-1]
@@ -421,7 +493,6 @@ class EplbState:
         """
         Rearrange the experts according to the current load.
         """
-
         ep_group = get_ep_group().device_group
         ep_rank = ep_group.rank()
 
@@ -501,18 +572,37 @@ class EplbState:
                 "not using hierarchical rearrangement algorithm.\n"
                 f"{num_gpus=}, {num_nodes=}")
 
-        # Get new expert mappings
-        (
-            new_physical_to_logical_map,
-            new_logical_to_physical_map,
-            new_logical_replica_count,
-        ) = (rebalance_experts(
-            global_expert_load_window,
-            num_replicas,
-            num_groups,
-            num_nodes,
-            num_gpus,
-        ))
+        if hasattr(model, "num_routed_experts_list") and len(model.num_routed_experts_list) > 0:
+            new_physical_to_logical_map = self.physical_to_logical_map.to("cpu")
+            new_logical_to_physical_map = self.logical_to_physical_map.to("cpu")
+            new_logical_replica_count = self.logical_replica_count.to("cpu")
+            for i, num_experts in enumerate(model.num_routed_experts_list):
+                # if num_replicas == num_experts:
+                #     continue
+                phy_to_log_map, log_to_phy_map, log_replica_count = \
+                    rebalance_experts(
+                            global_expert_load_window[i:i+1,:num_experts],
+                            num_replicas,
+                            num_groups,
+                            num_nodes,
+                            num_gpus
+                )
+                new_physical_to_logical_map[i:i+1].copy_(phy_to_log_map)
+                new_logical_to_physical_map[i:i+1, :num_experts, :log_to_phy_map.shape[-1]].copy_(log_to_phy_map)
+                new_logical_replica_count[i:i+1, :num_experts].copy_(log_replica_count)
+        else:
+            # Get new expert mappings
+            (
+                new_physical_to_logical_map,
+                new_logical_to_physical_map,
+                new_logical_replica_count,
+            ) = (rebalance_experts(
+                global_expert_load_window,
+                num_replicas,
+                num_groups,
+                num_nodes,
+                num_gpus,
+            ))
 
         # Update expert weights
         rearrange_expert_weights_inplace(

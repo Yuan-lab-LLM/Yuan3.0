@@ -1493,16 +1493,18 @@ class CompressedTensorsWNA16MarlinMoEMethod(CompressedTensorsMoEMethod):
         logical_replica_count: Optional[torch.Tensor] = None,
     ) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         assert self.fused_experts is None
-
+        '''
         if enable_eplb:
             raise NotImplementedError(
                 "EPLB not supported for "
                 "`CompressedTensorsWNA16MarlinMoEMethod` yet.")
-
+        '''
         assert activation == "silu", (
             f"{activation} not supported for Marlin MoE.")
-
-        topk_weights, topk_ids, _ = FusedMoE.select_experts(
+        
+        zero_expert_num = getattr(layer, 'zero_expert_num', 0)
+        zero_expert_type = getattr(layer, 'zero_expert_type', None)
+        select_result = FusedMoE.select_experts(
             hidden_states=x,
             router_logits=router_logits,
             use_grouped_topk=use_grouped_topk,
@@ -1514,9 +1516,19 @@ class CompressedTensorsWNA16MarlinMoEMethod(CompressedTensorsMoEMethod):
             scoring_func=scoring_func,
             routed_scaling_factor=routed_scaling_factor,
             e_score_correction_bias=e_score_correction_bias,
-            indices_type=self.topk_indices_dtype)
+            indices_type=self.topk_indices_dtype,
+            enable_eplb=enable_eplb,
+            expert_map=expert_map,
+            expert_load_view=expert_load_view,
+            logical_to_physical_map=logical_to_physical_map,
+            logical_replica_count=logical_replica_count,
+            global_num_experts=global_num_experts,
+            zero_expert_num=zero_expert_num,
+            zero_expert_type=zero_expert_type,
+        )
+        topk_weights, topk_ids, zero_expert_result = select_result
 
-        return torch.ops.vllm.fused_marlin_moe(
+        result = torch.ops.vllm.fused_marlin_moe(
             x,
             layer.w13_weight_packed,
             layer.w2_weight_packed,
@@ -1537,7 +1549,12 @@ class CompressedTensorsWNA16MarlinMoEMethod(CompressedTensorsMoEMethod):
             sort_indices2=layer.w2_g_idx_sort_indices,
             workspace=layer.workspace,
             is_k_full=self.is_k_full)
-
+        if zero_expert_num != 0 and zero_expert_type is not None:
+            assert not isinstance(result, tuple), \
+                "Shared + zero experts are mutually exclusive (not yet supported)"
+            return result, zero_expert_result
+        else:
+            return result
 
 class CompressedTensorsWNA16MoEMethod(CompressedTensorsMoEMethod):
 

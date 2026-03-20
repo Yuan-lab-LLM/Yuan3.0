@@ -20,19 +20,18 @@ from vllm.attention import Attention, AttentionMetadata
 from vllm.model_executor.layers.linear import  (ColumnParallelLinear,
                                                ReplicatedLinear,
                                                RowParallelLinear)
-# from vllm.model_executor.layers.sampler import get_sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
     VocabParallelEmbedding, ParallelLMHead, DEFAULT_VOCAB_PADDING_SIZE)
-# from vllm.model_executor.sampling_metadata import SamplingMetadata
-from vllm.model_executor.model_loader.weight_utils import default_weight_loader # hf_model_weights_iterator)
+from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.sequence import IntermediateTensors
-from vllm.distributed import (get_pp_group,
+from vllm.distributed import (get_ep_group, get_pp_group,
                               get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size,
-                              tensor_model_parallel_all_reduce)
+                              tensor_model_parallel_all_reduce,
+                              tensor_model_parallel_all_gather)
 from vllm.distributed.utils import get_pp_indices
 from vllm.model_executor.utils import set_weight_attrs
-from .interfaces import SupportsPP
+from .interfaces import SupportsPP, MixtureOfExperts
 
 from .utils import (AutoWeightsLoader, PPMissingLayer,
                     is_pp_missing_parameter, make_layers,
@@ -40,6 +39,7 @@ from .utils import (AutoWeightsLoader, PPMissingLayer,
 
 from vllm.model_executor.layers.layernorm import RMSNorm as VLLM_RMSNorm
 from vllm.model_executor.layers.fused_moe import fused_topk_v2, FusedMoE
+from vllm.model_executor.models.utils import sequence_parallel_chunk
 from vllm.attention import get_attn_backend
 from vllm.utils import (STR_DTYPE_TO_TORCH_DTYPE, LayerBlockType, direct_register_custom_op,
                         get_dtype_size, is_pin_memory_available)
@@ -48,6 +48,9 @@ from vllm.forward_context import ForwardContext, get_forward_context
 from vllm.compilation.decorators import support_torch_compile
 from vllm.config import get_current_vllm_config
 
+from vllm.v1.attention.backends.triton_attn import TritonAttentionMetadata
+if envs.VLLM_ATTENTION_BACKEND == "FLASHINFER":
+    from vllm.v1.attention.backends.flashinfer import FlashInferMetadata
 
 def print_ops_fake(tensor: torch.Tensor, tensor_name: str = None) -> None:
     pass
@@ -106,83 +109,17 @@ class ParallelAttention_router(nn.Module):
         return router_output
 
 
-class MoEDroplessTokenDispatcher:
-    def __init__(self, num_experts: int, config: YuanConfig) -> None:
-        
-        self.num_experts = num_experts
-        assert self.num_experts > 0, "Expected at least one expert"
-        self.router_topk = config.moe_config['moe_top_k']
-
-    def token_permutation(
-        self, hidden_states: torch.Tensor, max_prob: torch.Tensor, max_ind: torch.Tensor
-    ):
-        self.hidden_shape = hidden_states.shape
-        hidden_states = hidden_states.view(-1, self.hidden_shape[-1])
-
-        if self.router_topk > 1:
-            global_local_map = torch.ones_like(max_ind).bool()
-            local_indices = max_ind.masked_select(global_local_map)
-            local_probs = max_prob.masked_select(global_local_map)
-            global_local_map = global_local_map.nonzero()[:, 0]
-            global_local_map = global_local_map.view(-1, 1).expand(-1, hidden_states.shape[-1])
-            local_hidden_states = torch.gather(hidden_states, 0, global_local_map)
-
-        indices = torch.argsort(local_indices, dim=0)
-        tokens_per_expert = torch.histc(
-            local_indices,
-            bins=self.num_experts,
-            min=0,
-            max=self.num_experts - 1,
-        )
-        tokens_per_expert = tokens_per_expert.cpu().to(torch.long)
-
-        indices = indices.view(-1, 1).expand(-1, hidden_states.shape[-1])
-        permuted_local_hidden_states = torch.gather(local_hidden_states, 0, indices)
-        return (permuted_local_hidden_states, tokens_per_expert, local_probs, indices, global_local_map)
-
-    def token_unpermutation(
-        self,
-        hidden_states: torch.Tensor,
-        scores: torch.Tensor,
-        indices: torch.Tensor,
-        global_local_map: torch.Tensor = None,
-    ):
-        scores = scores.to(dtype=hidden_states.dtype)
-        unpermuted_local_hidden = torch.zeros_like(hidden_states)
-        assert indices.shape == hidden_states.shape, f'{indices.shape}, {hidden_states.shape}'
-        unpermuted_local_hidden = unpermuted_local_hidden.scatter(0, indices, hidden_states)
-
-        if self.router_topk > 1:
-            unpermuted_local_hidden = unpermuted_local_hidden * scores.view(-1, 1)
-
-        output_total = unpermuted_local_hidden
-
-        if self.router_topk > 1:
-            global_num_tokens = self.hidden_shape[0]
-            global_hidden_shape = [global_num_tokens, hidden_states.shape[-1]]
-            unpermuted_global_hidden = torch.zeros(
-                global_hidden_shape,
-                dtype=hidden_states.dtype,
-                device=hidden_states.device,
-            )
-            output_total = unpermuted_global_hidden.scatter_add(
-                0, global_local_map, unpermuted_local_hidden
-            )
-        output_total = output_total.view(self.hidden_shape)
-
-        return output_total
-
-
 class YuanMoeLayer(nn.Module):
-    def __init__(self, config:YuanConfig, num_layer: int,num_experts,
-                quant_config: Optional[QuantizationConfig] = None,  # Quant Use
-                prefix: str = ""):
+    def __init__(self,
+                 vllm_config: VllmConfig,
+                 num_experts: int,
+                 prefix: str = ""):
         super().__init__()
-        self.config = config
+        config = vllm_config.model_config.hf_text_config
+        quant_config = vllm_config.quant_config
+        parallel_config = vllm_config.parallel_config
         self.num_experts = num_experts
         self.top_k = config.moe_config['moe_top_k']
-        self.hidden_size = config.hidden_size
-        self.num_layer = num_layer
         self.is_old_version = int(os.environ.get('OLD_YUAN_VERSION', 0))
         self.tp_size = get_tensor_model_parallel_world_size()
 
@@ -196,33 +133,62 @@ class YuanMoeLayer(nn.Module):
                 self.gate = nn.Linear(config.hidden_size, self.num_experts, bias=False)
             else:
                 self.router = nn.Linear(config.hidden_size, self.num_experts, bias=False)
-        self.token_dispatcher = MoEDroplessTokenDispatcher(self.num_experts, self.config)
+
+        self.ep_group = get_ep_group().device_group
+        self.ep_rank = self.ep_group.rank()
+        self.ep_size = self.ep_group.size()
+        self.is_sequence_parallel = parallel_config.use_sequence_parallel_moe
+        eplb_config = parallel_config.eplb_config
+        self.enable_eplb = parallel_config.enable_eplb
+        if 'per_layer_experts_blocks' in config.moe_config:
+            assert config.moe_config['per_layer_experts_blocks'] != None
+            self.n_logical_experts = max(config.moe_config['per_layer_experts_blocks'])
+            self.n_routed_experts = self.n_logical_experts
+        else:
+            self.n_logical_experts = num_experts
+            self.n_routed_experts = num_experts
+
+        self.n_redundant_experts = eplb_config.num_redundant_experts
+        self.n_physical_experts = (self.n_logical_experts +
+                                   self.n_redundant_experts)
+        self.n_local_physical_experts = self.n_physical_experts // self.ep_size
+        if self.enable_eplb:
+            real_n_redundant_experts = self.n_redundant_experts + self.n_logical_experts - num_experts
+        else:
+            real_n_redundant_experts = 0
+        
         self.experts = FusedMoE(num_experts=self.num_experts,
-                                    top_k=self.top_k,
-                                    hidden_size=self.hidden_size,
-                                    intermediate_size=config.moe_config['ffn_hidden_size'],
-                                    reduce_results=False,
-                                    renormalize=config.moe_config["norm_topk_prob"],
-                                    quant_config=quant_config,
-                                    prefix=f"{prefix}.experts",
-                                    custom_routing_function=fused_topk_v2)
-
-
-    def routing(self, logits: torch.Tensor) -> torch.Tensor:
-        top_logits, indices = torch.topk(logits, k=self.top_k, dim=1)
-        scores = torch.softmax(top_logits, dim=-1, dtype=torch.float32).type_as(logits)
-        return scores, indices
+                                top_k=self.top_k,
+                                hidden_size=config.hidden_size,
+                                intermediate_size=config.moe_config['ffn_hidden_size'],
+                                reduce_results=True,
+                                renormalize=config.moe_config["norm_topk_prob"],
+                                quant_config=quant_config,
+                                prefix=f"{prefix}.experts",
+                                is_sequence_parallel=self.is_sequence_parallel,
+                                enable_eplb=self.enable_eplb,
+                                num_redundant_experts=real_n_redundant_experts,
+                                custom_routing_function=fused_topk_v2)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        is_input_1d = hidden_states.dim() == 1
+        num_tokens, hidden_dim = hidden_states.shape
+        hidden_states = hidden_states.view(-1, hidden_dim)
+
+        if self.is_sequence_parallel:
+            hidden_states = sequence_parallel_chunk(hidden_states)
+
         if self.is_old_version:
             logits = self.gate(hidden_states)
         else:
             logits = self.router(hidden_states)
         final_hidden_states = self.experts(hidden_states, logits)
-        if self.tp_size > 1:
-            final_hidden_states = tensor_model_parallel_all_reduce(
-                final_hidden_states)
+        if self.is_sequence_parallel:
+            final_hidden_states = tensor_model_parallel_all_gather(
+                final_hidden_states, 0)
+            final_hidden_states = final_hidden_states[:num_tokens]
         return final_hidden_states
+
 
 def _yarn_find_correction_dim(num_rotations, dim, base=10000, max_position_embeddings=2048):
     return (dim * math.log(max_position_embeddings/(num_rotations * 2 * math.pi)))/(2 * math.log(base))
@@ -346,7 +312,6 @@ class YuanRotaryEmbedding(nn.Module):
             )
         # emb [seq_length, .., dim]
         emb = emb[:, None, None, :]
-        #emb = emb[:, None, :] 
         return emb
 
 def _rotate_half_bshd(x: Tensor, rotary_interleaved: bool):
@@ -472,9 +437,10 @@ class LocalizedFiltering(torch.nn.Module):
             scale = 2
         else:
             scale = 1
-        lf_cache_nums = 2 * 2**30 * scale // (self.embed_dim * 3 // self.tp_size * (self.end_layer - self.start_layer))
-        self.lf1_caches = torch.zeros((lf_cache_nums, self.embed_dim // self.tp_size), dtype=params_dtype, device="cuda")
-        self.lf2_caches = torch.zeros((lf_cache_nums, self.embed_dim // 2 // self.tp_size), dtype=params_dtype, device="cuda")
+        self.lf_cache_size_gibs = float(os.environ.get('LF_CACHE_SIZE_GIBS', 2))
+        self.lf_cache_nums = int(self.lf_cache_size_gibs * 2**30 * scale / (self.embed_dim * 3 / self.tp_size * (self.end_layer - self.start_layer)))
+        self.lf1_caches = torch.zeros((self.lf_cache_nums, self.embed_dim // self.tp_size), dtype=params_dtype, device="cuda")
+        self.lf2_caches = torch.zeros((self.lf_cache_nums, self.embed_dim // 2 // self.tp_size), dtype=params_dtype, device="cuda")
 
     def fused_cat_conv2d(
             self,
@@ -508,9 +474,12 @@ class LocalizedFiltering(torch.nn.Module):
             out_lf_loc: torch.Tensor,
             inputs_loc: torch.Tensor,
             outputs_loc: torch.Tensor,
+            kv_cache: torch.Tensor,
         ):
         assert pre_lf_indexs.shape == input_lf_loc.shape
         assert out_lf_indexs.shape == out_lf_loc.shape
+        assert kv_cache.numel() == 0 or self.lf_cache_nums > kv_cache.shape[1], \
+                f"please increase env LF_CACHE_SIZE_GIBS with {self.lf_cache_size_gibs * kv_cache.shape[1] / self.lf_cache_nums + 0.1:.2f}"
         input_t = inputs.chunk(self.tp_size, dim=1)[self.tp_rank]
         output1 = self.fused_cat_conv2d(input_t, pre_lf_indexs, out_lf_indexs, input_lf_loc, out_lf_loc,
                 inputs_loc, outputs_loc, self.lf1_caches, self.conv1_weight)
@@ -565,60 +534,54 @@ class YuanAttention(nn.Module):
 
     def __init__(
         self,
-        config: YuanConfig,
-        hidden_size: int,
-        attention_projection_size: int,
-        num_heads: int,
-        num_kv_heads: int,
-        attn_head_size=None,
-        rope_theta: float = 500000,
-        rope_scaling: Optional[Dict[str, Any]] = None,
-        max_position_embeddings: int = 4096,
-        bias: bool = False,
-        sliding_window: Optional[int] = None,
-        quant_config: Optional[QuantizationConfig] = None, # Quant Use
-        cache_config: Optional[CacheConfig] = None,
+        vllm_config: VllmConfig,
         prefix: str = "",
     ) -> None:
         super().__init__()
-        self.config = config
-        self.hidden_size = hidden_size
-        self.tp_size = get_tensor_model_parallel_world_size()
-        self.total_num_heads = num_heads
+        import torch.distributed as dist
+        self.rank = dist.get_rank()
 
-        self.attn_head_size = attention_projection_size // num_heads if attn_head_size is None else attn_head_size
-        assert self.total_num_heads % self.tp_size == 0
-        self.num_heads = self.total_num_heads // self.tp_size
-        self.total_num_kv_heads = num_kv_heads
-        if self.total_num_kv_heads >= self.tp_size:
-            assert self.total_num_kv_heads % self.tp_size == 0
-        else:
-            assert self.tp_size % self.total_num_kv_heads == 0
-        self.num_kv_heads = max(1, self.total_num_kv_heads // self.tp_size)
+        config = vllm_config.model_config.hf_text_config
+        quant_config = vllm_config.quant_config
+        cache_config=vllm_config.cache_config
+        hidden_size = config.hidden_size
+        self.total_num_heads = config.num_attention_heads
+        self.total_num_kv_heads = getattr(config, 'num_kv_heads', self.total_num_heads)
+        tp_size = get_tensor_model_parallel_world_size()
+        tp_rank = get_tensor_model_parallel_rank()
+
+        attention_projection_size = getattr(config, 'attention_projection_size', config.hidden_size)
+        self.attn_head_size = attention_projection_size // self.total_num_heads
+
+        self.num_heads = (self.total_num_heads + tp_size - 1) // tp_size  
+        self.num_kv_heads = max(1, (self.total_num_kv_heads + tp_size - 1) // tp_size)
+
         self.head_dim = config.attention_projection_size // self.total_num_heads if hasattr(config, 'attention_projection_size') else hidden_size // self.total_num_heads
         self.q_size = self.num_heads * self.head_dim
         self.kv_size = self.num_kv_heads * self.head_dim
         self.scaling = self.head_dim**-0.5
-        self.rope_theta = rope_theta
         
         self.eps = 1e-6
         self.get_query_key = ColumnParallelLinear(
             hidden_size,
-            (self.q_size + self.kv_size) * self.tp_size,
+            (self.q_size + self.kv_size) * tp_size,
             bias=config.use_bias,
             quant_config=quant_config,
+            prefix=f"{prefix}.get_query_key",
         )
         self.v_proj = ColumnParallelLinear(
             hidden_size,
-            self.kv_size * self.tp_size,
+            self.kv_size * tp_size,
             bias=config.use_bias,
             quant_config=quant_config,
+            prefix=f"{prefix}.v_proj",
         )
         self.o_proj = RowParallelLinear(
-            self.q_size * self.tp_size,
+            self.q_size * tp_size,
             hidden_size,
             bias=config.use_bias,
             quant_config=quant_config,
+            prefix=f"{prefix}.o_proj",
         )
         
         self.lf_gate = LocalizedFiltering(config, cache_config, hidden_size)
@@ -629,8 +592,7 @@ class YuanAttention(nn.Module):
                               cache_config=cache_config,
                               quant_config=quant_config,
                               prefix=f"{prefix}.attn",
-                              ) 
-
+                    ) 
     def forward(
         self,
         positions: torch.Tensor,
@@ -647,7 +609,8 @@ class YuanAttention(nn.Module):
         attn_factor: float=1.0,
     ) ->  torch.Tensor:
         v, _ = self.v_proj(hidden_states)
-        hidden_states = self.lf_gate(hidden_states, pre_lf_indexs, out_lf_indexs, input_lf_loc, out_lf_loc, inputs_loc, outputs_loc)
+        kv_cache = self.attn.kv_cache[0]
+        hidden_states = self.lf_gate(hidden_states, pre_lf_indexs, out_lf_indexs, input_lf_loc, out_lf_loc, inputs_loc, outputs_loc, kv_cache)
 
         qk, _ = self.get_query_key(hidden_states)
         qk = qk.view(*qk.shape[:-1], self.num_kv_heads, int(qk.shape[-1] // self.num_kv_heads))
@@ -667,24 +630,13 @@ class YuanDecoderLayer(nn.Module):
 
     def __init__(
         self,
-        config: YuanConfig,
-        cache_config: Optional[CacheConfig] = None,
-        quant_config: Optional[QuantizationConfig] = None,
+        vllm_config: VllmConfig,
         prefix: str = "",
     ) -> None:
         super().__init__()
-        self.hidden_size = config.hidden_size
-        self.attention_projection_size = getattr(config, 'attention_projection_size', config.hidden_size)
-        self.num_heads = config.num_attention_heads
-        self.num_kv_heads = getattr(config, 'num_kv_heads', self.num_heads)
+        config = vllm_config.model_config.hf_text_config
         self.self_attn = YuanAttention(
-            config=config,
-            hidden_size=self.hidden_size,
-            attention_projection_size=self.attention_projection_size,
-            num_heads=self.num_heads,
-            num_kv_heads=self.num_kv_heads,
-            cache_config=cache_config,
-            quant_config=quant_config,
+            vllm_config=vllm_config,
             prefix=f"{prefix}.self_attn",
         )
         self.use_moe = getattr(config, "use_moe", False)
@@ -692,17 +644,16 @@ class YuanDecoderLayer(nn.Module):
             layer_idx = int(prefix.split(".")[-1])
             if 'per_layer_experts_blocks' in config.moe_config:
                 assert config.moe_config['per_layer_experts_blocks'] != None
-                self.num_experts = config.moe_config['per_layer_experts_blocks'][layer_idx]
+                num_experts = config.moe_config['per_layer_experts_blocks'][layer_idx]
             elif 'moe_num_experts' in config.moe_config:
                 assert config.moe_config['moe_num_experts'] != None
-                self.num_experts = config.moe_config['moe_num_experts']
+                num_experts = config.moe_config['moe_num_experts']
             else:
                 raise ValueError(f'per_layer_experts_blocks or moe_num_experts must in config.moe_config')
-            self.mlp = YuanMoeLayer(config, layer_idx, self.num_experts,
-                                    quant_config=quant_config, prefix=prefix)
+            self.mlp = YuanMoeLayer(vllm_config=vllm_config, num_experts=num_experts, prefix=prefix)
         else:
             self.mlp = YuanMLP(
-                hidden_size=self.hidden_size,
+                hidden_size=config.hidden_size,
                 intermediate_size=config.intermediate_size,
                 hidden_act=config.hidden_act,
             )
@@ -764,21 +715,15 @@ class YuanModel(nn.Module):
     ) -> None:
         super().__init__()
         config = vllm_config.model_config.hf_text_config
-        cache_config = vllm_config.cache_config
-        quant_config = vllm_config.quant_config
-        lora_config = vllm_config.lora_config
         self.config = config
-        self.quant_config = quant_config
-        self.padding_idx = config.pad_token_id
         if get_pp_group().is_first_rank:
             self.embed_tokens = VocabParallelEmbedding(
                 config.vocab_size,
                 config.hidden_size,
             )
-        lora_vocab = (lora_config.lora_extra_vocab_size *
-                      (lora_config.max_loras or 1)) if lora_config else 0
+        else:
+            self.embed_tokens = PPMissingLayer()
  
-        self.vocab_size = config.vocab_size + lora_vocab
         rotary_percent = getattr(config, "rotary_percent", 1.0)
         attention_projection_size = getattr(config, 'attention_projection_size', config.hidden_size)
         rotary_dim = getattr(config, "rotary_dim", attention_projection_size // config.num_attention_heads)
@@ -816,13 +761,26 @@ class YuanModel(nn.Module):
          
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
-            lambda prefix: YuanDecoderLayer(config, quant_config=quant_config, cache_config=cache_config, prefix=prefix),
+            lambda prefix: YuanDecoderLayer(vllm_config, prefix=prefix),
             prefix=f"{prefix}.layers",
         )
         if get_pp_group().is_last_rank:
             self.norm = VLLM_RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         else:
             self.norm = PPMissingLayer()
+
+        parallel_config = vllm_config.parallel_config
+        eplb_config = parallel_config.eplb_config
+        self.num_redundant_experts = eplb_config.num_redundant_experts
+        self.enable_eplb = parallel_config.enable_eplb
+        if 'per_layer_experts_blocks' in self.config.moe_config:
+            assert self.config.moe_config['per_layer_experts_blocks'] != None
+            self.max_num_experts = max(self.config.moe_config['per_layer_experts_blocks'][self.start_layer:self.end_layer])
+        elif 'moe_num_experts' in self.config.moe_config:
+            assert self.config.moe_config['moe_num_experts'] != None
+            self.max_num_experts = self.config.moe_config['moe_num_experts']
+        else:
+            raise ValueError(f'per_layer_experts_blocks or moe_num_experts must in config.moe_config')
 
     def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self.embed_tokens(input_ids)
@@ -892,19 +850,19 @@ class YuanModel(nn.Module):
                 continue
 
             if self.use_moe and 'experts' in name:
+                
                 pattern = r'(layers\.\d+\.mlp\.experts\.w\d+)\.\d+\.([^.]+)$'
                 param_name = re.sub(pattern, r'\1_\2', name)
                 if "w1" in param_name:
                     param_name = param_name.replace("w1", "w13")
  
-                # Skip loading extra parameters for GPTQ/modelopt models.
-                if param_name.endswith(ignore_suffixes) and param_name not in params_dict:
+                if param_name not in params_dict:
                     print(f'{param_name} not in params_dict')
                     continue
                 if is_pp_missing_parameter(param_name, self):
                     print(f'pp_missing: {param_name} not in params_dict')
                     continue
-
+ 
                 layer_id = int(name.split(".")[1])
                 expert_id = int(name.split(".")[-2])
                 if 'per_layer_experts_blocks' in self.config.moe_config:
@@ -926,7 +884,20 @@ class YuanModel(nn.Module):
                 elif "w2" in param_name:
                     weight_loader = param.weight_loader
                     weight_loader(param, loaded_weight, param_name, "w2", expert_id)
+                if self.enable_eplb:
+                    if expert_id % num_experts < self.max_num_experts - num_experts + self.num_redundant_experts:
+                        for k in range(1, math.ceil((self.max_num_experts + self.num_redundant_experts) / num_experts)):
+                            redundant_expert_id = k * num_experts + expert_id
+                            if "w1" in param_name:
+                                weight_loader = param.weight_loader
+                                gate, up = loaded_weight.chunk(2)
+                                weight_loader(param, gate, param_name, "w1", redundant_expert_id)
+                                weight_loader(param, up, param_name, "w3", redundant_expert_id)
+                            elif "w2" in param_name:
+                                weight_loader = param.weight_loader
+                                weight_loader(param, loaded_weight, param_name, "w2", redundant_expert_id)
                 loaded_params.add(param_name)
+
             elif 'conv1' in name and "bias" not in name:
                 param_name = name.replace("conv1.", "conv1_")
                 if param_name not in params_dict:
@@ -982,7 +953,7 @@ class YuanModel(nn.Module):
         return loaded_params
 
 
-class YuanForCausalLM(nn.Module, SupportsPP):
+class YuanForCausalLM(nn.Module, SupportsPP, MixtureOfExperts):
 
     def __init__(
         self,
@@ -1027,12 +998,39 @@ class YuanForCausalLM(nn.Module, SupportsPP):
             get_pp_group().world_size
         )
 
+        # Set MoE hyperparameters
+        self.expert_weights = []
+
+        self.moe_layers: list[FusedMoE] = []
+        example_layer = None
+        for layer in self.model.layers:
+            if isinstance(layer, PPMissingLayer):
+                continue
+
+            assert isinstance(layer, YuanDecoderLayer)
+            if isinstance(layer.mlp, YuanMoeLayer):
+                example_layer = layer.mlp
+                self.moe_layers.append(layer.mlp.experts)
+
+        if example_layer is None:
+            raise RuntimeError("No Yuan layer found in the model.layers.")
+
+        self.num_moe_layers = len(self.moe_layers)
+        self.num_expert_groups = 1
+        self.num_shared_experts = 0
+        self.num_logical_experts = example_layer.n_logical_experts
+        self.num_physical_experts = example_layer.n_physical_experts
+        self.num_local_physical_experts = example_layer.n_local_physical_experts
+        self.num_routed_experts = example_layer.n_routed_experts
+        self.num_redundant_experts = example_layer.n_redundant_experts
+
+        self.num_routed_experts_list = []
+        if 'per_layer_experts_blocks' in self.config.moe_config:
+            assert self.config.moe_config['per_layer_experts_blocks'] != None
+            self.num_routed_experts_list = self.config.moe_config['per_layer_experts_blocks'][self.start_layer:self.end_layer]
+
         self.tp_rank = get_tensor_model_parallel_rank()
         self.tp_size = get_tensor_model_parallel_world_size()
-        if envs.VLLM_USE_V1:
-            self.len_kv_cache = 1
-        else:
-            self.len_kv_cache = get_current_vllm_config().parallel_config.pipeline_parallel_size
         self.cache_config = vllm_config.cache_config
         if vllm_config.model_config.enforce_eager:
             self.max_num_seqs = vllm_config.scheduler_config.max_num_seqs
@@ -1041,153 +1039,187 @@ class YuanForCausalLM(nn.Module, SupportsPP):
         self.full_cuda_graph = vllm_config.compilation_config.full_cuda_graph
 
         inputs_len = vllm_config.scheduler_config.max_num_batched_tokens
-        lf_len = inputs_len // self.cache_config.block_size + self.max_num_seqs
-        self.pre_lf_indexs = torch.zeros(lf_len, dtype=torch.long, device="cuda")
-        self.out_lf_indexs = torch.zeros(2*lf_len, dtype=torch.long, device="cuda")
-        self.input_lf_loc = torch.zeros(lf_len, dtype=torch.long, device="cuda")
-        self.out_lf_loc = torch.zeros(2*lf_len, dtype=torch.long, device="cuda")
+        self.pre_lf_indexs = torch.zeros(inputs_len, dtype=torch.long, device="cuda")
+        self.out_lf_indexs = torch.zeros(inputs_len, dtype=torch.long, device="cuda")
+        self.input_lf_loc = torch.zeros(inputs_len, dtype=torch.long, device="cuda")
+        self.out_lf_loc = torch.zeros(inputs_len, dtype=torch.long, device="cuda")
         self.inputs_loc = torch.zeros(inputs_len, dtype=torch.long, device="cuda")
         self.outputs_loc = torch.zeros(inputs_len, dtype=torch.long, device="cuda")
 
     def get_lf_index(self, input_ids):
         attn_metadata = get_forward_context().attn_metadata
-        lf_len = self.max_num_seqs if input_ids.shape[0] >= self.max_num_seqs else input_ids.shape[0]
+        lf_len = input_ids.shape[0]
         if attn_metadata is None:
             self.input_lf_len = lf_len
-            self.input_len = input_ids.shape[0]
-            if self.cache_config.enable_prefix_caching:
-                self.output_lf_len = lf_len * 2
-            else:
-                self.output_lf_len = lf_len
-            return
+            self.input_len = lf_len
+            self.output_lf_len = lf_len
 
+            self.pre_lf_indexs[:lf_len].fill_(-1)
+            self.out_lf_indexs[:lf_len].fill_(-1)
+            self.input_lf_loc[:lf_len].fill_(-1)
+            self.out_lf_loc[:lf_len].zero_()
+            self.inputs_loc[:lf_len].zero_()
+            self.outputs_loc[:lf_len].zero_()
+            return
 
         if isinstance(attn_metadata, dict):
             attn_metadata = list(attn_metadata.values())[0]
 
-        if not isinstance(attn_metadata, FlashAttentionMetadata): 
-            assert False, f"Now not support {type(attn_metadata)}!"
-
-        if isinstance(attn_metadata, FlashAttentionMetadata) and attn_metadata:
+        if envs.VLLM_ATTENTION_BACKEND == "FLASHINFER" \
+                and isinstance(attn_metadata, FlashInferMetadata):
+            # v1: use backend flashinfer
+            seq_lens = attn_metadata.seq_lens
+            block_table = attn_metadata.block_table_tensor
+            num_reqs = seq_lens.shape[0]
+            input_len = input_ids.shape[0]
+            max_query_len = attn_metadata.max_q_len_prefill,
+            num_decodes = attn_metadata.num_decodes
+            num_decode_tokens = attn_metadata.num_decode_tokens
+            num_prefills = attn_metadata.num_prefills
+            num_prefill_tokens = attn_metadata.num_prefill_tokens
+            num_actual_tokens = num_decode_tokens + num_prefill_tokens
+            prefill_wrapper = attn_metadata.prefill_wrapper
+            decode_wrapper = attn_metadata.decode_wrapper
+            if decode_wrapper is not None and prefill_wrapper is None:
+                decode_wrapper = decode_wrapper._qo_indptr_buf
+                query_lens = decode_wrapper[1:] - decode_wrapper[:-1]
+                query_lens = query_lens[:num_decodes]
+            elif decode_wrapper is None and prefill_wrapper is not None:
+                prefill_wrapper = prefill_wrapper._qo_indptr_buf
+                query_lens = prefill_wrapper[1:] - prefill_wrapper[:-1]
+            elif decode_wrapper is not None and prefill_wrapper is not None:
+                decode_wrapper = decode_wrapper._qo_indptr_buf
+                prefill_wrapper = prefill_wrapper._qo_indptr_buf
+                query_lens_prefill = prefill_wrapper[1:] - prefill_wrapper[:-1]
+                query_lens_decode = decode_wrapper[1:] - decode_wrapper[:-1]
+                query_lens_decode = query_lens_decode[:num_decodes]
+                query_lens = torch.cat([query_lens_decode, query_lens_prefill]) 
+        elif isinstance(attn_metadata, FlashAttentionMetadata) \
+                or isinstance(attn_metadata, TritonAttentionMetadata):
             # v1: use backend flashattn
             seq_lens = attn_metadata.seq_lens
             block_table = attn_metadata.block_table
-            indices_1 = torch.clamp_min((seq_lens - 2) // self.cache_config.block_size, 0)
-            pre_indices = torch.gather(block_table, dim=1, index=indices_1.long().unsqueeze(1)).squeeze()
-            pre_indices = pre_indices.view(pre_indices.numel())
-            indices_2 = (seq_lens - 1) // self.cache_config.block_size
-            lf_indices = torch.gather(block_table, dim=1, index=indices_2.long().unsqueeze(1)).squeeze()
-            lf_indices = lf_indices.view(lf_indices.numel())
             num_reqs = seq_lens.shape[0]
-            # in cudagraph mode, prefill inputs_ids will padding with 0
-            if attn_metadata.max_query_len == 1 and not self.full_cuda_graph:
-                # decode
-                padding = input_ids.shape[0] - num_reqs
-                input_len = input_ids.shape[0]
-                input_lf_loc_list = [x for x in range(0, 2*num_reqs, 2)]
-                out_lf_loc_list = [x for x in range(1, 2*num_reqs, 2)]
-                inputs_loc_list = [x for x in range(1, 2*num_reqs, 2)]
-                outputs_loc_list = [x for x in range(0, 2*num_reqs, 2)]
-                if padding > 0:
-                    input_lf_loc_list.extend([-1 for _ in range(padding)])
-                    out_lf_loc_list.extend([0 for _ in range(padding)])
-                    inputs_loc_list.extend([2*num_reqs for _ in range(padding)])
-                    outputs_loc_list.extend([0 for _ in range(padding)])
-                self.input_lf_loc[:input_len].copy_(torch.tensor(input_lf_loc_list)) 
-                self.out_lf_loc[:input_len].copy_(torch.tensor(out_lf_loc_list)) 
-                self.pre_lf_indexs[:num_reqs].copy_(pre_indices)
-                self.pre_lf_indexs[num_reqs:input_len].fill_(-1)
-                self.out_lf_indexs[:num_reqs].copy_(lf_indices)
-                self.out_lf_indexs[num_reqs:input_len].fill_(-1)
-                self.inputs_loc[:input_len].copy_(torch.tensor(inputs_loc_list)) 
-                self.outputs_loc[:input_len].copy_(torch.tensor(outputs_loc_list))
-                self.input_lf_len = input_len
-                self.output_lf_len = input_len
-                self.input_len = input_len
-            else:
-                padding = input_ids.shape[0] - attn_metadata.num_actual_tokens
-                query_lens = attn_metadata.query_start_loc[1:] - attn_metadata.query_start_loc[:-1]
-                context_lens_tensor = seq_lens - query_lens
-                context_lens_tensor_list = context_lens_tensor.tolist()
-                query_lens_list = query_lens.tolist()
-                seq_lens_list = seq_lens.tolist()
-                input_lf_loc_list = []
-                out_lf_loc_list = []
-                inputs_loc_list = []
-                outputs_loc_list = []
-                if sum(query_lens_list) == 0:
-                    query_lens_list = [1 for _ in range(input_ids.shape[0])]
-                    padding = 0
-                for i, l in enumerate(query_lens_list):
-                    if self.cache_config.enable_prefix_caching and l > 1:
-                        start = self.cache_config.block_size - context_lens_tensor_list[i] % self.cache_config.block_size
-                        list_t = [i + j + sum(query_lens_list[:i]) \
-                            for j in range(start, l, self.cache_config.block_size)]
-                        out_lf_loc_list.extend(list_t)
-                    input_lf_loc_list.append(sum(query_lens_list[:i])+i)
-                    out_lf_loc_list.append(i + sum(query_lens_list[:i+1]))
-                    inputs_loc_list.extend([x+input_lf_loc_list[i] for x in range(1, l+1)])
-                    outputs_loc_list.extend([x+input_lf_loc_list[i] for x in range(l)])
-                if padding > 0:
-                    input_lf_loc_list.extend([-1 for _ in range(padding)])
-                    out_lf_loc_list.extend([0 for _ in range(padding)])
-                    inputs_loc_list.extend([inputs_loc_list[-1] + 1 for _ in range(padding)])
-                    outputs_loc_list.extend([0 for _ in range(padding)])
-                
-                self.input_lf_len = len(input_lf_loc_list)
-                self.output_lf_len = len(out_lf_loc_list)
-                self.input_len = input_ids.shape[0]
-                self.input_lf_loc[:self.input_lf_len].copy_(torch.tensor(input_lf_loc_list))
-                self.out_lf_loc[:self.output_lf_len].copy_(torch.tensor(out_lf_loc_list))
-                self.inputs_loc[:self.input_len].copy_(torch.tensor(inputs_loc_list))
-                self.outputs_loc[:self.input_len].copy_(torch.tensor(outputs_loc_list))
-                lf_prefill_indices_list = []
-                for i in range(num_reqs):
-                    if self.cache_config.enable_prefix_caching:
-                        # prefix_cache
-                        if query_lens_list[i] == 1:
-                            # chunked prefill
-                            lf_prefill_indices_list.append(lf_indices[i:i+1])
-                            continue
+            input_len = input_ids.shape[0]
+            max_query_len = attn_metadata.max_query_len
+            num_actual_tokens = attn_metadata.num_actual_tokens
+            query_lens = attn_metadata.query_start_loc[1:] - attn_metadata.query_start_loc[:-1] 
+        else:
+            assert False, f"Now not support {type(attn_metadata)}!"
 
-                        if context_lens_tensor_list[i] != 0:
-                            if context_lens_tensor_list[i] % self.cache_config.block_size == 0:
-                                x = context_lens_tensor_list[i] // self.cache_config.block_size
-                                pre_indices[i] = block_table[i][x-1]
-                            else:
-                                x = context_lens_tensor_list[i] // self.cache_config.block_size
-                                pre_indices[i] = block_table[i][x]
-                            sub_block_table_len = (seq_lens_list[i] - 1) // self.cache_config.block_size + 1
-                            lf_prefill_indices_list.append(block_table[i][x:sub_block_table_len].flatten())
-                            continue
+        indices_1 = torch.clamp_min((seq_lens - 2) // self.cache_config.block_size, 0)
+        pre_indices = torch.gather(block_table, dim=1, index=indices_1.long().unsqueeze(1)).squeeze()
+        pre_indices = pre_indices.view(pre_indices.numel())
+        indices_2 = (seq_lens - 1) // self.cache_config.block_size
+        lf_indices = torch.gather(block_table, dim=1, index=indices_2.long().unsqueeze(1)).squeeze()
+        lf_indices = lf_indices.view(lf_indices.numel())
+        # in cudagraph mode, prefill inputs_ids will padding with 0
+        if max_query_len == 1 and not self.full_cuda_graph:
+            # decode
+            padding = input_len - num_reqs
+            input_lf_loc_list = [x for x in range(0, 2*num_reqs, 2)]
+            out_lf_loc_list = [x for x in range(1, 2*num_reqs, 2)]
+            inputs_loc_list = [x for x in range(1, 2*num_reqs, 2)]
+            outputs_loc_list = [x for x in range(0, 2*num_reqs, 2)]
+            if padding > 0:
+                input_lf_loc_list.extend([-1 for _ in range(padding)])
+                out_lf_loc_list.extend([0 for _ in range(padding)])
+                inputs_loc_list.extend([2*num_reqs for _ in range(padding)])
+                outputs_loc_list.extend([0 for _ in range(padding)])
+            self.input_lf_loc[:input_len].copy_(torch.tensor(input_lf_loc_list)) 
+            self.out_lf_loc[:input_len].copy_(torch.tensor(out_lf_loc_list)) 
+            self.pre_lf_indexs[:num_reqs].copy_(pre_indices)
+            self.pre_lf_indexs[num_reqs:input_len].fill_(-1)
+            self.out_lf_indexs[:num_reqs].copy_(lf_indices)
+            self.out_lf_indexs[num_reqs:input_len].fill_(-1)
+            self.inputs_loc[:input_len].copy_(torch.tensor(inputs_loc_list)) 
+            self.outputs_loc[:input_len].copy_(torch.tensor(outputs_loc_list))
+            self.input_lf_len = input_len
+            self.output_lf_len = input_len
+            self.input_len = input_len
+        else:
+            padding = input_len - num_actual_tokens
+            context_lens_tensor = seq_lens - query_lens
+            context_lens_tensor_list = context_lens_tensor.tolist()
+            query_lens_list = query_lens.tolist()
+            seq_lens_list = seq_lens.tolist()
+            input_lf_loc_list = []
+            out_lf_loc_list = []
+            inputs_loc_list = []
+            outputs_loc_list = []
+            if sum(query_lens_list) == 0:
+                query_lens_list = [1 for _ in range(input_ids.shape[0])]
+                padding = 0
+            for i, l in enumerate(query_lens_list):
+                if self.cache_config.enable_prefix_caching and l > 1:
+                    start = self.cache_config.block_size - context_lens_tensor_list[i] % self.cache_config.block_size
+                    list_t = [i + j + sum(query_lens_list[:i]) \
+                        for j in range(start, l, self.cache_config.block_size)]
+                    out_lf_loc_list.extend(list_t)
+                input_lf_loc_list.append(sum(query_lens_list[:i])+i)
+                out_lf_loc_list.append(i + sum(query_lens_list[:i+1]))
+                inputs_loc_list.extend([x+input_lf_loc_list[i] for x in range(1, l+1)])
+                outputs_loc_list.extend([x+input_lf_loc_list[i] for x in range(l)])
+            if padding > 0:
+                input_lf_loc_list.extend([-1 for _ in range(padding)])
+                out_lf_loc_list.extend([0 for _ in range(padding)])
+                inputs_loc_list.extend([inputs_loc_list[-1] + 1 for _ in range(padding)])
+                outputs_loc_list.extend([0 for _ in range(padding)])
+            
+            self.input_lf_len = len(input_lf_loc_list)
+            self.output_lf_len = len(out_lf_loc_list)
+            self.input_len = input_ids.shape[0]
+            self.input_lf_loc[:self.input_lf_len].copy_(torch.tensor(input_lf_loc_list))
+            self.out_lf_loc[:self.output_lf_len].copy_(torch.tensor(out_lf_loc_list))
+            self.inputs_loc[:self.input_len].copy_(torch.tensor(inputs_loc_list))
+            self.outputs_loc[:self.input_len].copy_(torch.tensor(outputs_loc_list))
+            lf_prefill_indices_list = []
+            for i in range(num_reqs):
+                if self.cache_config.enable_prefix_caching:
+                    # prefix_cache
+                    if query_lens_list[i] == 1:
+                        # chunked prefill
+                        lf_prefill_indices_list.append(lf_indices[i:i+1])
+                        continue
+
+                    if context_lens_tensor_list[i] != 0:
+                        if context_lens_tensor_list[i] % self.cache_config.block_size == 0:
+                            x = context_lens_tensor_list[i] // self.cache_config.block_size
+                            pre_indices[i] = block_table[i][x-1]
                         else:
-                            sub_block_table_len = (seq_lens_list[i] - 1) // self.cache_config.block_size + 1
-                            lf_prefill_indices_list.append(block_table[i][:sub_block_table_len].flatten())
-                            for layer_index in range(self.model.start_layer, self.model.end_layer):
-                                lf1_caches = self.model.layers[layer_index].self_attn.lf_gate.lf1_caches
-                                lf2_caches = self.model.layers[layer_index].self_attn.lf_gate.lf2_caches
-                                lf1_caches[lf_prefill_indices_list[-1], ...].zero_()
-                                lf2_caches[lf_prefill_indices_list[-1], ...].zero_()
-                    if context_lens_tensor_list[i] == 0:
+                            x = context_lens_tensor_list[i] // self.cache_config.block_size
+                            pre_indices[i] = block_table[i][x]
+                        sub_block_table_len = (seq_lens_list[i] - 1) // self.cache_config.block_size + 1
+                        lf_prefill_indices_list.append(block_table[i][x:sub_block_table_len].flatten())
+                        continue
+                    else:
+                        sub_block_table_len = (seq_lens_list[i] - 1) // self.cache_config.block_size + 1
+                        lf_prefill_indices_list.append(block_table[i][:sub_block_table_len].flatten())
                         for layer_index in range(self.model.start_layer, self.model.end_layer):
                             lf1_caches = self.model.layers[layer_index].self_attn.lf_gate.lf1_caches
                             lf2_caches = self.model.layers[layer_index].self_attn.lf_gate.lf2_caches
-                            lf1_caches[pre_indices[i], ...].zero_()
-                            lf2_caches[pre_indices[i], ...].zero_()
+                            lf1_caches[lf_prefill_indices_list[-1], ...].zero_()
+                            lf2_caches[lf_prefill_indices_list[-1], ...].zero_()
+                if context_lens_tensor_list[i] == 0:
+                    for layer_index in range(self.model.start_layer, self.model.end_layer):
+                        lf1_caches = self.model.layers[layer_index].self_attn.lf_gate.lf1_caches
+                        lf2_caches = self.model.layers[layer_index].self_attn.lf_gate.lf2_caches
+                        lf1_caches[pre_indices[i], ...].zero_()
+                        lf2_caches[pre_indices[i], ...].zero_()
 
-                if self.cache_config.enable_prefix_caching:
-                    lf_indices = torch.cat(lf_prefill_indices_list)
-                    self.input_lf_loc[self.input_lf_len:lf_len].fill_(-1)
-                    self.out_lf_loc[self.output_lf_len:lf_len * 2].zero_()
-                    self.pre_lf_indexs[:pre_indices.shape[0]].copy_(pre_indices)
-                    self.pre_lf_indexs[pre_indices.shape[0]:lf_len].fill_(-1)
-                    self.out_lf_indexs[:lf_indices.shape[0]].copy_(lf_indices)
-                    self.out_lf_indexs[lf_indices.shape[0]:lf_len * 2].fill_(-1)
-                    self.input_lf_len = lf_len
-                    self.output_lf_len = lf_len * 2
-                else:
-                    self.pre_lf_indexs[:pre_indices.shape[0]].copy_(pre_indices)
-                    self.out_lf_indexs[:lf_indices.shape[0]].copy_(lf_indices)
+            if self.cache_config.enable_prefix_caching:
+                lf_indices = torch.cat(lf_prefill_indices_list)
+                self.input_lf_loc[self.input_lf_len:lf_len].fill_(-1)
+                self.out_lf_loc[self.output_lf_len:lf_len * 2].zero_()
+                self.pre_lf_indexs[:pre_indices.shape[0]].copy_(pre_indices)
+                self.pre_lf_indexs[pre_indices.shape[0]:lf_len].fill_(-1)
+                self.out_lf_indexs[:lf_indices.shape[0]].copy_(lf_indices)
+                self.out_lf_indexs[lf_indices.shape[0]:lf_len * 2].fill_(-1)
+                self.input_lf_len = lf_len
+                self.output_lf_len = lf_len * 2
+            else:
+                self.pre_lf_indexs[:pre_indices.shape[0]].copy_(pre_indices)
+                self.out_lf_indexs[:lf_indices.shape[0]].copy_(lf_indices)
 
     def forward(
         self,
@@ -1209,6 +1241,40 @@ class YuanForCausalLM(nn.Module, SupportsPP):
         )
 
         return hidden_states
+
+    def set_eplb_state(
+        self,
+        expert_load_view: torch.Tensor,
+        logical_to_physical_map: torch.Tensor,
+        logical_replica_count: torch.Tensor,
+    ) -> None:
+        for layer_idx, layer in enumerate(self.moe_layers):
+            # Register the expert weights.
+            self.expert_weights.append(layer.get_expert_weights())
+            layer.set_eplb_state(
+                moe_layer_idx=layer_idx,
+                expert_load_view=expert_load_view,
+                logical_to_physical_map=logical_to_physical_map,
+                logical_replica_count=logical_replica_count,
+            )
+
+    def update_physical_experts_metadata(
+        self,
+        num_physical_experts: int,
+        num_local_physical_experts: int,
+    ) -> None:
+        assert self.num_local_physical_experts == num_local_physical_experts
+        self.num_physical_experts = num_physical_experts
+        self.num_local_physical_experts = num_local_physical_experts
+        self.num_redundant_experts = (num_physical_experts -
+                                      self.num_logical_experts)
+        for layer_idx, layer in enumerate(self.model.layers):
+            if isinstance(layer.mlp, YuanMoeLayer):
+                moe = layer.mlp
+                moe.n_local_physical_experts = num_local_physical_experts
+                moe.n_physical_experts = num_physical_experts
+                moe.n_redundant_experts = self.num_redundant_experts
+                moe.experts.update_expert_map()
 
     def compute_logits(
             self,

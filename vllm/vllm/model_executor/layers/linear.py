@@ -449,7 +449,7 @@ class ColumnParallelLinear(LinearBase):
         self.tp_size = (get_tensor_model_parallel_world_size()
                         if not disable_tp else 1)
         self.input_size_per_partition = input_size
-        self.output_size_per_partition = divide(output_size, self.tp_size)
+        self.output_size_per_partition = (output_size + self.tp_size - 1) // self.tp_size
         self.output_partition_sizes = [self.output_size_per_partition]
         # If QKV or MergedColumn, use output size of each partition.
         if hasattr(self, "output_sizes"):
@@ -521,9 +521,19 @@ class ColumnParallelLinear(LinearBase):
             param.materialize(final_shape, dtype=loaded_weight.dtype)
 
         param_data = param.data
+        num_padding = 0
+        mod_size = 0
         if output_dim is not None and not is_sharded_weight:
             shard_size = param_data.shape[output_dim]
-            start_idx = self.tp_rank * shard_size
+            mod_size = loaded_weight.shape[output_dim] % shard_size
+            redundant_size = shard_size * self.tp_size - loaded_weight.shape[output_dim]
+            if mod_size > 0:
+                num_padding = redundant_size // mod_size
+            if self.tp_rank < num_padding:
+                start_idx = self.tp_rank * shard_size
+            else:
+                start_idx = self.tp_rank*shard_size - (self.tp_rank - num_padding) * mod_size
+                shard_size = shard_size - mod_size
             loaded_weight = loaded_weight.narrow(output_dim, start_idx,
                                                  shard_size)
 
@@ -532,8 +542,14 @@ class ColumnParallelLinear(LinearBase):
         if len(loaded_weight.shape) == 0:
             loaded_weight = loaded_weight.reshape(1)
 
-        assert param_data.shape == loaded_weight.shape
-        param_data.copy_(loaded_weight)
+        if self.tp_rank >= num_padding and mod_size > 0:
+            param_data[:-mod_size, ...].copy_(loaded_weight)
+            param_data[-mod_size:, ...].zero_()
+        else:
+            assert param_data.shape == loaded_weight.shape
+            param_data.copy_(loaded_weight)
+
+
 
     def weight_loader_v2(self, param: BasevLLMParameter,
                          loaded_weight: torch.Tensor):
@@ -1247,7 +1263,7 @@ class RowParallelLinear(LinearBase):
                         if not disable_tp else 0)
         self.tp_size = (get_tensor_model_parallel_world_size()
                         if not disable_tp else 1)
-        self.input_size_per_partition = divide(input_size, self.tp_size)
+        self.input_size_per_partition = (input_size + self.tp_size - 1) // self.tp_size
         self.output_size_per_partition = output_size
         self.output_partition_sizes = [output_size]
 
@@ -1312,9 +1328,19 @@ class RowParallelLinear(LinearBase):
             param.materialize(tuple(weight_shape), dtype=loaded_weight.dtype)
 
         param_data = param.data
+        num_padding = 0
+        mod_size = 0
         if input_dim is not None and not is_sharded_weight:
             shard_size = param_data.shape[input_dim]
-            start_idx = self.tp_rank * shard_size
+            mod_size = loaded_weight.shape[input_dim] % shard_size
+            redundant_size = shard_size * self.tp_size - loaded_weight.shape[input_dim]
+            if mod_size > 0:
+                num_padding = redundant_size // mod_size
+            if self.tp_rank < num_padding:
+                start_idx = self.tp_rank * shard_size
+            else:
+                start_idx = self.tp_rank*shard_size - (self.tp_rank - num_padding) * mod_size
+                shard_size = shard_size - mod_size
             loaded_weight = loaded_weight.narrow(input_dim, start_idx,
                                                  shard_size)
 
@@ -1323,8 +1349,12 @@ class RowParallelLinear(LinearBase):
         if len(loaded_weight.shape) == 0:
             loaded_weight = loaded_weight.reshape(1)
 
-        assert param_data.shape == loaded_weight.shape
-        param_data.copy_(loaded_weight)
+        if self.tp_rank >= num_padding and mod_size > 0:
+            param_data[..., :-mod_size].copy_(loaded_weight)
+            param_data[..., -mod_size:].zero_()
+        else:
+            assert param_data.shape == loaded_weight.shape
+            param_data.copy_(loaded_weight)
 
     def weight_loader_v2(self, param: BasevLLMParameter,
                          loaded_weight: torch.Tensor):
