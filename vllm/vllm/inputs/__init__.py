@@ -1,12 +1,23 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
-from .data import (DataPrompt, DecoderOnlyInputs, EmbedsInputs, EmbedsPrompt,
-                   EncoderDecoderInputs, ExplicitEncoderDecoderPrompt,
-                   ProcessorInputs, PromptType, SingletonInputs,
-                   SingletonPrompt, TextPrompt, TokenInputs, TokensPrompt,
-                   build_explicit_enc_dec_prompt, embeds_inputs,
-                   to_enc_dec_tuple_list, token_inputs, zip_enc_dec_prompts)
+from .data import (
+    DataPrompt,
+    DecoderOnlyInputs,
+    EmbedsInputs,
+    EmbedsPrompt,
+    EncoderDecoderInputs,
+    ExplicitEncoderDecoderPrompt,
+    ProcessorInputs,
+    PromptType,
+    SingletonInputs,
+    SingletonPrompt,
+    TextPrompt,
+    TokenInputs,
+    TokensPrompt,
+    embeds_inputs,
+    token_inputs,
+)
 
 __all__ = [
     "DataPrompt",
@@ -24,7 +35,4 @@ __all__ = [
     "EncoderDecoderInputs",
     "ProcessorInputs",
     "SingletonInputs",
-    "build_explicit_enc_dec_prompt",
-    "to_enc_dec_tuple_list",
-    "zip_enc_dec_prompts",
 ]

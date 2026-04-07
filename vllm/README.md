@@ -14,26 +14,10 @@ Easy, fast, and cheap LLM serving for everyone
 | <a href="https://docs.vllm.ai"><b>Documentation</b></a> | <a href="https://blog.vllm.ai/"><b>Blog</b></a> | <a href="https://arxiv.org/abs/2309.06180"><b>Paper</b></a> | <a href="https://x.com/vllm_project"><b>Twitter/X</b></a> | <a href="https://discuss.vllm.ai"><b>User Forum</b></a> | <a href="https://slack.vllm.ai"><b>Developer Slack</b></a> |
 </p>
 
----
-Join us at the [PyTorch Conference, October 22-23](https://events.linuxfoundation.org/pytorch-conference/) and [Ray Summit, November 3-5](https://www.anyscale.com/ray-summit/2025) in San Francisco for our latest updates on vLLM and to meet the vLLM team! Register now for the largest vLLM community events of the year!
+🔥 We have built a vllm website to help you get started with vllm. Please visit [vllm.ai](https://vllm.ai) to learn more.
+For events, please visit [vllm.ai/events](https://vllm.ai/events) to join us.
 
 ---
-
-*Latest News* 🔥
-
-- [2025/12] We fork vllm with tags:v0.11.0, supports Yuan3.0 40B with vLLM V1.
-- [2025/01] We are excited to announce the alpha release of vLLM V1: A major architectural upgrade with 1.7x speedup! Clean code, optimized execution loop, zero-overhead prefix caching, enhanced multimodal support, and more. Please check out our blog post [here](https://blog.vllm.ai/2025/01/27/v1-alpha-release.html).
-
-<details>
-<summary>Previous News</summary>
-
-</details>
-
----
-
-## Use Yuan3.0 Flash Model
-Yuan3.0 Flash supports bfloat16 and int4 quantization models.  [Quickstart](./README_Yuan.md)
-
 
 ## About
 
@@ -59,7 +43,7 @@ vLLM is flexible and easy to use with:
 - Tensor, pipeline, data and expert parallelism support for distributed inference
 - Streaming outputs
 - OpenAI-compatible API server
-- Support for NVIDIA GPUs, AMD CPUs and GPUs, Intel CPUs and GPUs, PowerPC CPUs, and TPU. Additionally, support for diverse hardware plugins such as Intel Gaudi, IBM Spyre and Huawei Ascend.
+- Support for NVIDIA GPUs, AMD CPUs and GPUs, Intel CPUs and GPUs, PowerPC CPUs, Arm CPUs, and TPU. Additionally, support for diverse hardware plugins such as Intel Gaudi, IBM Spyre and Huawei Ascend.
 - Prefix caching support
 - Multi-LoRA support
 
@@ -91,46 +75,6 @@ Visit our [documentation](https://docs.vllm.ai/en/latest/) to learn more.
 We welcome and value any contributions and collaborations.
 Please check out [Contributing to vLLM](https://docs.vllm.ai/en/latest/contributing/index.html) for how to get involved.
 
-## Sponsors
-
-vLLM is a community project. Our compute resources for development and testing are supported by the following organizations. Thank you for your support!
-
-<!-- Note: Please sort them in alphabetical order. -->
-<!-- Note: Please keep these consistent with docs/community/sponsors.md -->
-Cash Donations:
-
-- a16z
-- Dropbox
-- Sequoia Capital
-- Skywork AI
-- ZhenFund
-
-Compute Resources:
-
-- Alibaba Cloud
-- AMD
-- Anyscale
-- AWS
-- Crusoe Cloud
-- Databricks
-- DeepInfra
-- Google Cloud
-- Intel
-- Lambda Lab
-- Nebius
-- Novita AI
-- NVIDIA
-- Replicate
-- Roblox
-- RunPod
-- Trainy
-- UC Berkeley
-- UC San Diego
-
-Slack Sponsor: Anyscale
-
-We also have an official fundraising venue through [OpenCollective](https://opencollective.com/vllm). We plan to use the fund to support the development, maintenance, and adoption of vLLM.
-
 ## Citation
 
 If you use vLLM for your research, please cite our [paper](https://arxiv.org/abs/2309.06180):
@@ -151,7 +95,7 @@ If you use vLLM for your research, please cite our [paper](https://arxiv.org/abs
 - For discussing with fellow users, please use the [vLLM Forum](https://discuss.vllm.ai)
 - For coordinating contributions and development, please use [Slack](https://slack.vllm.ai)
 - For security disclosures, please use GitHub's [Security Advisories](https://github.com/vllm-project/vllm/security/advisories) feature
-- For collaborations and partnerships, please contact us at [vllm-questions@lists.berkeley.edu](mailto:vllm-questions@lists.berkeley.edu)
+- For collaborations and partnerships, please contact us at [collaboration@vllm.ai](mailto:collaboration@vllm.ai)
 <!-- --8<-- [end:contact-us] -->
 
 ## Media Kit
