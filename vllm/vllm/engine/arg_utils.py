@@ -368,6 +368,7 @@ class EngineArgs:
     served_model_name: str | list[str] | None = ModelConfig.served_model_name
     tokenizer: str | None = ModelConfig.tokenizer
     hf_config_path: str | None = ModelConfig.hf_config_path
+    lm_head_dtype: ModelDType | torch.dtype = ModelConfig.lm_head_dtype
     runner: RunnerOption = ModelConfig.runner
     convert: ConvertOption = ModelConfig.convert
     skip_tokenizer_init: bool = ModelConfig.skip_tokenizer_init
@@ -673,6 +674,7 @@ class EngineArgs:
             "--trust-remote-code", **model_kwargs["trust_remote_code"]
         )
         model_group.add_argument("--dtype", **model_kwargs["dtype"])
+        model_group.add_argument("--lm-head-dtype", **model_kwargs["lm_head_dtype"])
         model_group.add_argument("--seed", **model_kwargs["seed"])
         model_group.add_argument("--hf-config-path", **model_kwargs["hf_config_path"])
         model_group.add_argument(
@@ -1328,6 +1330,7 @@ class EngineArgs:
 
         return ModelConfig(
             model=self.model,
+            lm_head_dtype=self.lm_head_dtype,
             model_weights=self.model_weights,
             hf_config_path=self.hf_config_path,
             runner=self.runner,

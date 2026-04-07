@@ -147,11 +147,29 @@ class _ColumnvLLMParameter(BasevLLMParameter):
 
     def load_column_parallel_weight(self, loaded_weight: torch.Tensor):
         shard_size = self.data.shape[self.output_dim]
-        loaded_weight = loaded_weight.narrow(
-            self.output_dim, self.tp_rank * shard_size, shard_size
-        )
-        assert self.data.shape == loaded_weight.shape
-        self.data.copy_(loaded_weight)
+        mod_size = loaded_weight.shape[self.output_dim] % shard_size
+        redundant_size = shard_size * self.tp_size - loaded_weight.shape[self.output_dim]
+        if mod_size > 0:
+            num_padding = redundant_size // mod_size
+        else:
+            num_padding = 0
+        if self.tp_rank < num_padding:
+            loaded_weight = loaded_weight.narrow(self.output_dim,
+                                                 self.tp_rank * shard_size,
+                                                 shard_size)
+        else:
+            start_idx = self.tp_rank*shard_size - (self.tp_rank - num_padding) * mod_size
+            shard_size = shard_size - mod_size
+            loaded_weight = loaded_weight.narrow(self.output_dim,
+                                                 start_idx,
+                                                 shard_size)
+
+        if self.tp_rank >= num_padding and mod_size > 0:
+            self.data[:-mod_size, ...].copy_(loaded_weight)
+            self.data[-mod_size:, ...].zero_()
+        else:
+            assert self.data.shape == loaded_weight.shape
+            self.data.copy_(loaded_weight)
 
     def load_merged_column_weight(self, loaded_weight: torch.Tensor, **kwargs):
         shard_offset = kwargs.get("shard_offset")
@@ -219,15 +237,32 @@ class RowvLLMParameter(BasevLLMParameter):
 
     def load_row_parallel_weight(self, loaded_weight: torch.Tensor):
         shard_size = self.data.shape[self.input_dim]
-        loaded_weight = loaded_weight.narrow(
-            self.input_dim, self.tp_rank * shard_size, shard_size
-        )
+        mod_size = loaded_weight.shape[self.input_dim] % shard_size
+        redundant_size = shard_size * self.tp_size - loaded_weight.shape[self.input_dim]
+        if mod_size > 0:
+            num_padding = redundant_size // mod_size
+        else:
+            num_padding = 0
+        if self.tp_rank < num_padding:
+            loaded_weight = loaded_weight.narrow(self.input_dim,
+                                                 self.tp_rank * shard_size,
+                                                 shard_size)
+        else:
+            start_idx = self.tp_rank*shard_size - (self.tp_rank - num_padding) * mod_size
+            shard_size = shard_size - mod_size
+            loaded_weight = loaded_weight.narrow(self.input_dim,
+                                                 start_idx,
+                                                 shard_size)
 
         if len(loaded_weight.shape) == 0:
             loaded_weight = loaded_weight.reshape(1)
 
-        assert self.data.shape == loaded_weight.shape
-        self.data.copy_(loaded_weight)
+        if self.tp_rank >= num_padding and mod_size > 0:
+            self.data[..., :-mod_size].copy_(loaded_weight)
+            self.data[..., -mod_size:].zero_()
+        else:
+            assert self.data.shape == loaded_weight.shape
+            self.data.copy_(loaded_weight)
 
 
 class ModelWeightParameter(_ColumnvLLMParameter, RowvLLMParameter):

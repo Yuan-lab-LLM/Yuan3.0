@@ -140,6 +140,8 @@ class ModelConfig:
     - "bfloat16" for a balance between precision and range.\n
     - "float" is shorthand for FP32 precision.\n
     - "float32" for FP32 precision."""
+    lm_head_dtype: ModelDType | torch.dtype = "auto"
+    """lm_head_dtype"""
     seed: int = 0
     """Random seed for reproducibility.
 
@@ -556,6 +558,14 @@ class ModelConfig:
             is_pooling_model=self.runner_type == "pooling",
             revision=self.revision,
             config_format=self.config_format,
+        )
+
+        self.lm_head_dtype: torch.dtype = _get_and_verify_dtype(
+            self.model,
+            self.hf_config,
+            self.lm_head_dtype,
+            is_pooling_model=self.runner_type == "pooling",
+            revision=self.revision,
         )
 
         self.original_max_model_len = self.max_model_len
@@ -1046,14 +1056,14 @@ class ModelConfig:
         self,
         parallel_config: ParallelConfig,
     ) -> None:
-        total_num_attention_heads = self.model_arch_config.total_num_attention_heads
-        tensor_parallel_size = parallel_config.tensor_parallel_size
-        if total_num_attention_heads % tensor_parallel_size != 0:
-            raise ValueError(
-                f"Total number of attention heads ({total_num_attention_heads})"
-                " must be divisible by tensor parallel size "
-                f"({tensor_parallel_size})."
-            )
+        # total_num_attention_heads = self.model_arch_config.total_num_attention_heads
+        # tensor_parallel_size = parallel_config.tensor_parallel_size
+        # if total_num_attention_heads % tensor_parallel_size != 0:
+        #     raise ValueError(
+        #         f"Total number of attention heads ({total_num_attention_heads})"
+        #         " must be divisible by tensor parallel size "
+        #         f"({tensor_parallel_size})."
+        #     )
 
         if parallel_config.enable_expert_parallel:
             self._verify_with_expert_parallelism()

@@ -46,7 +46,7 @@ class ParamInfo:
         Includes stride because parameters with same shape but different
         strides need separate buffers to preserve memory layout.
         """
-        return (self.name, self.shape, self.stride, self.dtype)
+        return (self.name, self.dtype)
 
     @property
     def num_bytes(self) -> int:
@@ -54,7 +54,10 @@ class ParamInfo:
         numel = 1
         for dim in self.shape:
             numel *= dim
-        return numel * torch.finfo(self.dtype).bits // 8
+        if self.dtype.is_floating_point:
+            return numel * torch.finfo(self.dtype).bits // 8
+        else:
+            return numel * torch.iinfo(self.dtype).bits // 8
 
 
 class StaticBufferPool:
@@ -76,6 +79,7 @@ class StaticBufferPool:
         param_infos: list[ParamInfo],
         slot_capacity: int,
         device: torch.device,
+        max_experts: int | None,
     ):
         self.slot_capacity = slot_capacity
         self.total_bytes = 0
@@ -84,7 +88,11 @@ class StaticBufferPool:
         # Group by (shape, stride, dtype) - only allocate unique combinations
         unique_params: dict[tuple, ParamInfo] = {}
         for info in param_infos:
-            if info.key not in unique_params:
+            if "experts" in info.key[0]:
+                if max_experts is not None:
+                    info.shape = (max_experts, *info.shape[1:])
+                unique_params[info.key] = info
+            elif info.key not in unique_params:
                 unique_params[info.key] = info
 
         # Allocate buffers: key -> list of tensors (one per slot)
@@ -114,13 +122,11 @@ class StaticBufferPool:
     def get_buffer(
         self,
         name: str,
-        shape: tuple[int, ...],
-        stride: tuple[int, ...],
         dtype: torch.dtype,
         slot_idx: int,
     ) -> torch.Tensor:
         """Get a static buffer for the given name/shape/stride/dtype/slot."""
-        key = (name, shape, stride, dtype)
+        key = (name, dtype)
         return self._buffers[key][slot_idx % self.slot_capacity]
 
 
@@ -151,6 +157,12 @@ class PrefetchOffloader(BaseOffloader):
         self.prefetch_step = prefetch_step
         self.offload_params = offload_params or set()
         self.mode = mode
+        # Exclude quantization-related index parameters from offloading
+        # (e.g., w13_weight_g_idx, w2_weight_g_idx used in int4 quantization)
+        self.nooffload_params = ("w13_weight_g_idx", "w2_weight_g_idx", 
+                                 "w13_g_idx_sort_indices", "w2_g_idx_sort_indices",
+                                 "w13_weight_shape", "w2_weight_shape",
+                                )
 
         # Copy stream for async H2D transfers
         self.copy_stream = torch.cuda.Stream()
@@ -159,6 +171,7 @@ class PrefetchOffloader(BaseOffloader):
         self.module_offloaders: list[_ModuleOffloader] = []
         self.buffer_pool: StaticBufferPool | None = None
         self.total_offloaded_bytes = 0
+        self.max_experts = None
 
     def wrap_modules(
         self,
@@ -177,15 +190,22 @@ class PrefetchOffloader(BaseOffloader):
 
             # Select layers to offload based on group pattern
             # Offload last num_in_group layers of each group_size
-            if module_index % self.group_size >= self.group_size - self.num_in_group:
+            # if module_index % self.group_size >= self.group_size - self.num_in_group:
+            if module_index % self.group_size < self.num_in_group:
+                self.max_experts = getattr(module, "max_experts", None)
                 if self.offload_params:
                     whitelist = [
                         name
                         for name, _ in module.named_parameters()
-                        if any(f".{p}." in f".{name}." for p in self.offload_params)
+                        if any(f".{p}." in f".{name}." for p in self.offload_params) and \
+                            not any(f".{p}." in f".{name}." for p in self.nooffload_params)
                     ]
                 else:
-                    whitelist = [name for name, _ in module.named_parameters()]
+                    whitelist = [
+                        name 
+                        for name, _ in module.named_parameters()
+                        if not any(f".{p}." in f".{name}." for p in self.nooffload_params)
+                    ]
 
                 if not whitelist:
                     continue  # skip layers with no matching params
@@ -340,6 +360,7 @@ class PrefetchOffloader(BaseOffloader):
             param_infos=param_infos,
             slot_capacity=self.prefetch_step,
             device=device,
+            max_experts=self.max_experts,
         )
 
         # Assign buffer slots and point parameters to GPU buffers
@@ -435,6 +456,23 @@ class _ModuleOffloader:
         for param_offloader in self._param_offloaders.values():
             param_offloader.sync_cpu_storage()
 
+        # Remove offloaders whose parameter was deleted during
+        # process_weights_after_loading (e.g. k_scale / v_scale).
+        deleted = [
+            name
+            for name, offloader in self._param_offloaders.items()
+            if getattr(offloader, "_param_deleted", False)
+        ]
+        if deleted:
+            logger.debug(
+                "Pruning %d transient offloaded param(s) that were deleted "
+                "by process_weights_after_loading: %s",
+                len(deleted),
+                deleted,
+            )
+            for name in deleted:
+                del self._param_offloaders[name]
+
     def get_param_infos(self) -> list[ParamInfo]:
         """Get parameter metadata for buffer pool allocation.
 
@@ -471,8 +509,6 @@ class _ModuleOffloader:
             assert cpu_storage is not None, "CPU storage not initialized"
             buffer = pool.get_buffer(
                 name=name,
-                shape=tuple(cpu_storage.shape),
-                stride=tuple(cpu_storage.stride()),
                 dtype=cpu_storage.dtype,
                 slot_idx=slot_idx,
             )
@@ -512,8 +548,10 @@ class _ModuleOffloader:
                     "causes stream synchronization that breaks "
                     "event-based fork synchronization."
                 )
-                gpu_buffer.copy_(cpu_storage, non_blocking=True)
-
+                if gpu_buffer.shape[0] != cpu_storage.shape[0]:
+                    gpu_buffer[:cpu_storage.shape[0], ...].copy_(cpu_storage, non_blocking=True)
+                else:
+                    gpu_buffer.copy_(cpu_storage, non_blocking=True)
         # Record completion event for _wait_for_layer to use
         self._copy_done_event.record(self.copy_stream)
         # Event is only valid for eager wait_event if recorded outside capture.
@@ -590,6 +628,12 @@ class _CpuParamOffloader(_BaseParamOffloader):
         super().__init__(module, param_name)
         self._cpu_storage: torch.Tensor | None = None
         self._gpu_buffer: torch.Tensor | None = None  # Store reference to GPU buffer
+
+        # Set to True if the underlying nn.Parameter was deleted by
+        # process_weights_after_loading (e.g. transient KV-cache scale params
+        # such as k_scale/v_scale created by BaseKVCacheMethod.create_weights
+        # and deleted after copying into permanent _k_scale buffers).
+        self._param_deleted: bool = False
 
         # Offload to CPU immediately to free GPU memory during model loading
         self._offload_to_cpu_internal()
@@ -696,8 +740,22 @@ class _CpuParamOffloader(_BaseParamOffloader):
         1. process_weights_after_loading may transform weights (quantization)
         2. device_loading_context creates NEW CPU tensors when moving back
         3. Our old _cpu_storage would have pre-processed or stale data
+
+        If the parameter no longer exists on the module (e.g. transient
+        KV-cache scale parameters such as k_scale/v_scale that are created
+        by BaseKVCacheMethod.create_weights() and then deleted by
+        process_weights_after_loading() after copying their values into
+        permanent _k_scale buffers), the offloader marks itself as deleted
+        and skips the sync.  The caller (_ModuleOffloader.sync_cpu_storage)
+        is responsible for removing these stale entries.
         """
-        self._update_cpu_storage_from_param()
+        try:
+            self._update_cpu_storage_from_param()
+        except AttributeError:
+            # The parameter was deleted by process_weights_after_loading.
+            # Drop the now-stale CPU storage so this offloader can be pruned.
+            self._param_deleted = True
+            self._cpu_storage = None
 
     def post_init(self):
         """No-op: offloading done in offload_to_cpu/assign_static_buffer."""

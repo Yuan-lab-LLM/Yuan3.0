@@ -100,7 +100,7 @@ if HAS_TRITON:
         AiterExperts,
     )
     from vllm.model_executor.layers.fused_moe.router.fused_topk_router import (
-        fused_topk,
+        fused_topk, fused_topk_v2
     )
     from vllm.model_executor.layers.fused_moe.router.grouped_topk_router import (
         GroupedTopk,
@@ -115,6 +115,7 @@ if HAS_TRITON:
 
     __all__ += [
         "AiterExperts",
+        "fused_topk_v2",
         "fused_topk",
         "fused_experts",
         "get_config_file_name",

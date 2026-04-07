@@ -16,6 +16,12 @@ TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, m) {
       "bias) -> ()");
   m.impl("topk_sigmoid", torch::kCUDA, &topk_sigmoid);
 
+  // This Operator is computed as topk firstly and softmax secondly.
+  m.def(
+      "topk_softmax_v2(Tensor! topk_weights, Tensor! topk_indices, "
+      "Tensor gating_output) -> ()");
+  m.impl("topk_softmax_v2", torch::kCUDA, &topk_softmax_v2);
+  
   // Calculate the result of moe by summing up the partial results
   // from all selected experts.
   m.def("moe_sum(Tensor input, Tensor! output) -> ()");

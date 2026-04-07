@@ -150,6 +150,10 @@ _TOOL_PARSERS_TO_REGISTER = {
         "functiongemma_tool_parser",
         "FunctionGemmaToolParser",
     ),
+    "yuan_pythonic": (
+        "yuan_pythonic_tool_parser",
+        "YuanPythonicToolParser",
+    )
 }
 
 

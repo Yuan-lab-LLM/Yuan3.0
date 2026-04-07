@@ -2312,6 +2312,11 @@ def topk_softmax(
     )
 
 
+def topk_softmax_v2(topk_weights: torch.Tensor, topk_ids: torch.Tensor,
+                    gating_output: torch.Tensor) -> None:
+    torch.ops._moe_C.topk_softmax_v2(topk_weights, topk_ids, gating_output)
+
+
 def topk_sigmoid(
     topk_weights: torch.Tensor,
     topk_ids: torch.Tensor,

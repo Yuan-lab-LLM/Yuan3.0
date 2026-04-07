@@ -203,6 +203,7 @@ _TEXT_GENERATION_MODELS = {
     "TeleFLMForCausalLM": ("teleflm", "TeleFLMForCausalLM"),
     "XverseForCausalLM": ("llama", "LlamaForCausalLM"),
     "Zamba2ForCausalLM": ("zamba2", "Zamba2ForCausalLM"),
+    "YuanForCausalLM": ("yuan", "YuanForCausalLM"),
 }
 
 _EMBEDDING_MODELS = {
@@ -517,6 +518,7 @@ _MULTIMODAL_MODELS = {
         "NemotronParseForConditionalGeneration",
     ),
     "WhisperForConditionalGeneration": ("whisper", "WhisperForConditionalGeneration"),  # noqa: E501
+    "YuanVLChatModel": ("yuanvl", "YuanVLChatModel"),
 }
 
 _SPECULATIVE_DECODING_MODELS = {

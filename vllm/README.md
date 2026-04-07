@@ -19,6 +19,10 @@ For events, please visit [vllm.ai/events](https://vllm.ai/events) to join us.
 
 ---
 
+## Use Yuan3.0 Flash Model
+Yuan3.0 Flash supports bfloat16 and int4 quantization models.  [Quickstart](./README_Yuan.md)
+
+
 ## About
 
 vLLM is a fast and easy-to-use library for LLM inference and serving.

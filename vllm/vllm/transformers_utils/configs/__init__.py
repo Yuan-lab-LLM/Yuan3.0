@@ -67,6 +67,7 @@ _CLASS_TO_MODULE: dict[str, str] = {
     "Tarsier2Config": "vllm.transformers_utils.configs.tarsier2",
     # Special case: DeepseekV3Config is from HuggingFace Transformers
     "DeepseekV3Config": "transformers",
+    "YuanVLChatConfig": "vllm.transformers_utils.configs.yuanvl",
 }
 
 __all__ = [
@@ -118,6 +119,7 @@ __all__ = [
     "Qwen3_5MoeConfig",
     "Qwen3_5MoeTextConfig",
     "Tarsier2Config",
+    "YuanVLChatConfig",
 ]
 
 

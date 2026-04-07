@@ -98,7 +98,15 @@ class Scheduler(SchedulerInterface):
         self.prev_step_scheduled_req_ids: set[str] = set()
 
         # Scheduling constraints.
-        self.max_num_running_reqs = self.scheduler_config.max_num_seqs
+        if envs.VLLM_USE_RAY_V2_EXECUTOR_BACKEND:
+            self.max_num_running_reqs = self.scheduler_config.max_num_seqs
+        else:
+            self.pipeline_parallel_size = self.parallel_config.pipeline_parallel_size
+            self.max_num_running_reqs = self.scheduler_config.max_num_seqs
+            self.max_num_pre_pipeline_reqs = (self.scheduler_config.max_num_seqs 
+                                                + self.pipeline_parallel_size - 1) \
+                                                // self.pipeline_parallel_size
+
         self.max_num_scheduled_tokens = (
             self.scheduler_config.max_num_scheduled_tokens
             if self.scheduler_config.max_num_scheduled_tokens
@@ -357,6 +365,10 @@ class Scheduler(SchedulerInterface):
         # First, schedule the RUNNING requests.
         req_index = 0
         while req_index < len(self.running) and token_budget > 0:
+            if not envs.VLLM_USE_RAY_V2_EXECUTOR_BACKEND and self.pipeline_parallel_size > 1:
+                current_stage_capacity = (len(self.running) + self.pipeline_parallel_size - 1) // self.pipeline_parallel_size
+                if len(scheduled_running_reqs) >= min(self.max_num_pre_pipeline_reqs, current_stage_capacity):
+                    break
             request = self.running[req_index]
 
             if (
@@ -539,6 +551,10 @@ class Scheduler(SchedulerInterface):
             skipped_waiting_requests = create_request_queue(self.policy)
 
             while self.waiting and token_budget > 0:
+                if not envs.VLLM_USE_RAY_V2_EXECUTOR_BACKEND and self.pipeline_parallel_size > 1:
+                    reqs_num_pre_pipeline = len(scheduled_new_reqs) + len(scheduled_running_reqs) + len(scheduled_resumed_reqs)
+                    if reqs_num_pre_pipeline >= self.max_num_pre_pipeline_reqs:
+                        break
                 if len(self.running) == self.max_num_running_reqs:
                     break
 

@@ -454,6 +454,10 @@ class FlashInferMetadata:
 
     q_data_type: torch.dtype
 
+    max_q_len: int
+    seq_lens: torch.Tensor
+    block_table_tensor: torch.Tensor
+
     num_decodes: int
     num_decode_tokens: int
     num_prefills: int
@@ -480,6 +484,7 @@ class FlashInferMetadata:
     """
 
     cascade_wrapper: MultiLevelCascadeAttentionWrapper | None
+    qo_indptr_gpu: torch.Tensor | None = None
 
 
 class FlashInferMetadataBuilder(AttentionMetadataBuilder[FlashInferMetadata]):
@@ -892,6 +897,10 @@ class FlashInferMetadataBuilder(AttentionMetadataBuilder[FlashInferMetadata]):
             num_actual_tokens=num_actual_tokens,
             slot_mapping=common_attn_metadata.slot_mapping,
             q_data_type=self.q_data_type,
+            max_q_len = max_seq_len,
+            seq_lens=seq_lens,
+            block_table_tensor=block_table_tensor,
+            qo_indptr_gpu=common_attn_metadata.query_start_loc,
             num_decodes=num_decodes,
             num_decode_tokens=num_decode_tokens,
             num_prefills=num_prefills,

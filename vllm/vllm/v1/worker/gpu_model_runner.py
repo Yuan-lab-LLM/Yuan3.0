@@ -1631,6 +1631,46 @@ class GPUModelRunner(
         self.input_batch.block_table.compute_slot_mapping(req_indices, positions_np)
         self.input_batch.block_table.commit_slot_mapping(total_num_scheduled_tokens)
 
+        # For Yuanvl Model, position of images_token need set 0
+        # prefix cache need to process
+        image_tokens_lens = []
+        for value in self.requests.values():
+            image_tokens_len = 0
+            for x in value.mm_features:
+                image_tokens_len += x.mm_position.length
+            image_tokens_lens.append(image_tokens_len)
+        if sum(image_tokens_lens) > 0 and "Yuan" in self.model.__str__():
+            position_list = []
+            for index, req_id in enumerate(self.input_batch.req_ids):
+                context_len = self.input_batch.num_computed_tokens_cpu[index]
+                image_tokens_len = sum([x.mm_position.length for x in self.requests[req_id].mm_features])
+                if num_scheduled_tokens[index] == 1:
+                    # decode
+                    position_t = self.arange_np[:1] + (context_len - image_tokens_len)
+                    position_t = np.expand_dims(position_t, axis=0)
+                    position_list.extend(position_t)
+                    continue
+                if context_len > image_tokens_len:
+                    # prefix cache
+                    prompt_tokens_len = scheduler_output.num_scheduled_tokens[req_id] + (context_len - image_tokens_len)
+                    position_t = np.arange(context_len - image_tokens_len, prompt_tokens_len)
+                    position_t = np.expand_dims(position_t, axis=0)
+                    position_list.extend(position_t)
+                    continue
+                if scheduler_output.num_scheduled_tokens[req_id] + context_len < image_tokens_len:
+                    # chunked prefill
+                    position_t =  np.repeat(np.array([0]), scheduler_output.num_scheduled_tokens[req_id])
+                    position_t = np.expand_dims(position_t, axis=0)
+                    position_list.extend(position_t)
+                    continue
+
+                prompt_tokens_len = scheduler_output.num_scheduled_tokens[req_id] + (context_len - image_tokens_len)
+                position_t = np.arange(prompt_tokens_len)
+                position_t = np.concatenate((np.repeat(np.array([0]), image_tokens_len - context_len), position_t))
+                position_t = np.expand_dims(position_t, axis=0)
+                position_list.extend(position_t)
+            np.concatenate(position_list, out=positions_np)
+
         # Prepare the attention metadata.
         self.query_start_loc.np[0] = 0
         self.query_start_loc.np[1 : num_reqs + 1] = cu_num_tokens
@@ -3610,6 +3650,9 @@ class GPUModelRunner(
                 scheduler_output, clear_metadata=clear_kv_metadata
             ) as kv_connector_output,
         ):
+            if getattr(self.model, "language_model", None) and \
+                    getattr(self.model.language_model, "get_lf_index", None):
+                self.model.language_model.get_lf_index(positions)
             model_output = self._model_forward(
                 input_ids=input_ids,
                 positions=positions,
@@ -4973,6 +5016,9 @@ class GPUModelRunner(
                     slot_mapping=slot_mappings,
                 ),
             ):
+                if getattr(self.model, "language_model", None) and \
+                        getattr(self.model.language_model, "get_lf_index", None):
+                    self.model.language_model.get_lf_index(positions)
                 outputs = self.model(
                     input_ids=input_ids,
                     positions=positions,
